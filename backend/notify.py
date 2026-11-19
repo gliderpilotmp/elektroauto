@@ -54,9 +54,13 @@ class Notifier:
 
     # ---- Senden -------------------------------------------------------------
 
-    async def send(self, title: str, body: str, tag: str = "elektroauto") -> int:
+    has_ntfy = bool(NTFY_URL)
+
+    async def send(self, title: str, body: str, tag: str = "elektroauto") -> dict[str, Any]:
+        """Sendet an alle Geräte. Gibt Anzahl und Fehlermeldungen zurück."""
+
         payload = json.dumps({"title": title, "body": body, "tag": tag})
-        sent = 0
+        sent, errors = 0, []
         for sub in self.store.subscriptions():
             try:
                 await asyncio.to_thread(
@@ -70,14 +74,20 @@ class Notifier:
                 )
                 sent += 1
             except WebPushException as err:
-                status = err.response.status_code if err.response is not None else None
+                resp = err.response
+                status = resp.status_code if resp is not None else None
+                detail = (resp.text or "").strip()[:200] if resp is not None else str(err)
+                service = _service(sub["endpoint"])
                 if status in (404, 410):
-                    log.info("Push-Abo abgelaufen, wird entfernt")
+                    log.info("Push-Abo bei %s abgelaufen, wird entfernt", service)
                     self.store.remove_subscription(sub["endpoint"])
+                    errors.append(f"{service}: Abo abgelaufen, bitte neu aktivieren")
                 else:
-                    log.warning("Push fehlgeschlagen (%s): %s", status, err)
+                    log.warning("Push an %s fehlgeschlagen (%s): %s", service, status, detail)
+                    errors.append(f"{service} {status}: {detail or err}")
             except Exception as err:  # noqa: BLE001
                 log.warning("Push fehlgeschlagen: %s", err)
+                errors.append(f"{_service(sub['endpoint'])}: {err}")
 
         if NTFY_URL:
             try:
@@ -85,7 +95,9 @@ class Notifier:
                 sent += 1
             except Exception as err:  # noqa: BLE001
                 log.warning("ntfy fehlgeschlagen: %s", err)
-        return sent
+                errors.append(f"ntfy: {err}")
+        log.info("Benachrichtigung '%s': %d gesendet, %d Fehler", title, sent, len(errors))
+        return {"sent": sent, "errors": errors}
 
     # ---- Ladeschwellen ------------------------------------------------------
 
@@ -118,6 +130,17 @@ def _message(key: str, s: dict[str, Any]) -> tuple[str, str]:
     if key == "100":
         return "🔋 Akku voll", f"{name} ist voll geladen (100 %).{rng_txt}"
     return "⚡ Akku bei 80 %", f"{name} hat 80 % erreicht.{rng_txt}"
+
+
+def _service(endpoint: str) -> str:
+    host = urllib.parse.urlparse(endpoint).hostname or "?"
+    if "apple" in host:
+        return "Apple"
+    if "google" in host:
+        return "Google"
+    if "mozilla" in host:
+        return "Firefox"
+    return host
 
 
 def _ntfy(title: str, body: str) -> None:

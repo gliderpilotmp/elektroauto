@@ -48,6 +48,9 @@ DEMO = os.environ.get("DEMO", "").lower() in ("1", "true", "yes") or not (
 DATA_DIR = Path(os.environ.get("DATA_DIR") or Path(__file__).resolve().parent.parent / "data")
 # Wie oft das Auto im Hintergrund abgefragt wird (Minuten); beim Laden öfter
 POLL_MINUTES = float(os.environ.get("POLL_MINUTES") or (1 if DEMO else 10))
+# Wie lange die Klimatisierung nach dem Einschalten läuft (Minuten), wenn das
+# Auto keinen Status meldet
+CLIMATE_MINUTES = float(os.environ.get("CLIMATE_MINUTES") or 15)
 POLL_MINUTES_CHARGING = float(os.environ.get("POLL_MINUTES_CHARGING") or (1 if DEMO else 5))
 
 # Befehle, die die App senden darf (Name -> Beschreibung)
@@ -69,7 +72,6 @@ def _summary(v: dict[str, Any]) -> dict[str, Any]:
     """Reduziert die Fahrzeugdaten auf das, was die App anzeigt."""
 
     loc = v.get("location") or {}
-    climate_on = bool(v.get("hvac_on") or v.get("ev_cabin_cond"))
     return {
         "vin": v.get("vin"),
         "name": v.get("nickname") or "Fiat 500e",
@@ -84,7 +86,8 @@ def _summary(v: dict[str, Any]) -> dict[str, Any]:
         "plugged_in": v.get("plugged_in"),
         "charging": v.get("charging"),
         "charging_level": v.get("charging_level"),
-        "climate_on": climate_on,
+        # hvac_on fehlt beim 500e oft; ergänzt durch _with_climate()
+        "climate_on": v.get("hvac_on"),
         "climate_temp": v.get("hvac_temperature"),
         "doors_locked": all(
             x is not False
@@ -195,7 +198,8 @@ class DemoSource:
             "plugged_in": True,
             "charging": True,
             "charging_level": 2,
-            "hvac_on": False,
+            # wie beim echten 500e: kein Klima-Status vom Auto
+            "hvac_on": None,
             "hvac_temperature": 21.0,
             "door_driver_locked": True,
             "door_passenger_locked": True,
@@ -229,7 +233,6 @@ class DemoSource:
 
     async def climate(self, on: bool, temp: float | None) -> bool:
         await asyncio.sleep(2.5)
-        self.state["hvac_on"] = on
         if temp is not None:
             self.state["hvac_temperature"] = temp
         return True
@@ -284,6 +287,41 @@ def _seed_demo_history() -> None:
 
 if DEMO:
     _seed_demo_history()
+
+
+def _with_climate(data: dict[str, Any]) -> dict[str, Any]:
+    """Klima-Status: Meldet das Auto keinen (oder einen älteren) Status, wird er
+    aus dem letzten erfolgreichen Befehl abgeleitet."""
+
+    out = {**data, "climate_until": None, "climate_estimated": False}
+    cmd = store.get("climate_cmd")
+    if not cmd:
+        out["climate_on"] = bool(data.get("climate_on"))
+        return out
+    until = cmd["ts"] + CLIMATE_MINUTES * 60
+    reported_at = _ts(data.get("updated"))
+    car_is_newer = data.get("climate_on") is not None and reported_at and reported_at > cmd["ts"]
+    if car_is_newer:
+        out["climate_on"] = bool(data["climate_on"])
+    elif cmd["on"] and time.time() < until:
+        out.update(climate_on=True, climate_until=int(until), climate_estimated=True)
+    else:
+        out["climate_on"] = False
+    return out
+
+
+def _ts(value: Any) -> float | None:
+    try:
+        return datetime.fromisoformat(str(value)).timestamp() if value else None
+    except ValueError:
+        return None
+
+
+async def _climate_job(on: bool, temp: float | None) -> bool:
+    ok = await source.climate(on, temp)
+    if ok:
+        store.set("climate_cmd", {"on": on, "ts": time.time()})
+    return ok
 
 
 async def _observe(data: dict[str, Any]) -> None:
@@ -372,7 +410,7 @@ async def status(force: bool = False) -> dict[str, Any]:
         log.exception("Status fehlgeschlagen")
         raise HTTPException(502, f"Uconnect nicht erreichbar: {err}") from err
     await _observe(data)
-    return {**data, "demo": DEMO}
+    return {**_with_climate(data), "demo": DEMO}
 
 
 @app.post("/api/wake", dependencies=[Depends(auth)])
@@ -384,7 +422,7 @@ async def wake() -> dict[str, Any]:
 @app.post("/api/climate", dependencies=[Depends(auth)])
 async def climate(req: ClimateRequest) -> dict[str, Any]:
     label = "Klima ein" if req.on else "Klima aus"
-    return _start_job(label, source.climate(req.on, req.temperature))
+    return _start_job(label, _climate_job(req.on, req.temperature))
 
 
 @app.post("/api/command/{name}", dependencies=[Depends(auth)])
@@ -449,10 +487,12 @@ async def unsubscribe(sub: PushSubscription) -> dict[str, Any]:
 
 @app.post("/api/notify/test", dependencies=[Depends(auth)])
 async def notify_test() -> dict[str, Any]:
-    sent = await notifier.send("🔔 Test", "Benachrichtigungen funktionieren!", tag="test")
-    if not sent:
+    if not store.subscriptions() and not notifier.has_ntfy:
         raise HTTPException(400, "Kein Gerät für Benachrichtigungen angemeldet")
-    return {"sent": sent}
+    result = await notifier.send("🔔 Test", "Benachrichtigungen funktionieren!", tag="test")
+    if not result["sent"]:
+        raise HTTPException(502, "Senden fehlgeschlagen: " + "; ".join(result["errors"]))
+    return result
 
 
 @app.get("/")

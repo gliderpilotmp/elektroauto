@@ -36,7 +36,7 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add("show");
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove("show"), 3500);
+  toast.timer = setTimeout(() => t.classList.remove("show"), Math.max(3500, msg.length * 70));
 }
 
 const fmt = (n, d = 0) =>
@@ -92,12 +92,30 @@ function render(d) {
 }
 
 function renderClimate() {
-  const on = !!state.data?.climate_on;
-  $("climateCard").classList.toggle("on", on);
-  $("climateState").textContent = on ? "Läuft" : "Aus";
-  $("climateBtnText").textContent = on ? "Ausschalten" : "Einschalten";
+  const d = state.data || {};
+  const pending = state.climatePending; // "on" | "off" | undefined
+  let on = !!d.climate_on;
+  let left = d.climate_until ? Math.ceil((d.climate_until * 1000 - Date.now()) / 60000) : null;
+  if (left != null && left <= 0) { on = false; left = null; }
+
+  const card = $("climateCard");
+  card.classList.toggle("on", on && !pending);
+  card.classList.toggle("waiting", !!pending);
+  $("climateState").textContent = pending
+    ? (pending === "on" ? "Wird eingeschaltet …" : "Wird ausgeschaltet …")
+    : on ? (left != null ? `Läuft · noch ca. ${left} Min.` : "Läuft") : "Aus";
+
+  // beide Knöpfe immer da; der passende ist hervorgehoben
+  $("climateOn").classList.toggle("on", on && !pending);
+  $("climateOn").classList.toggle("pending", pending === "on");
+  $("climateOff").classList.toggle("pending", pending === "off");
+  $("climateOn").disabled = $("climateOff").disabled = !!pending;
+  $("climateHint").textContent = on && d.climate_estimated
+    ? "Das Auto meldet keinen Klima-Status, die Restzeit ist ab dem Einschalten geschätzt."
+    : "Die Vorklimatisierung läuft ca. 15 Minuten. Der Befehl braucht bis zu einer Minute, bis das Auto bestätigt.";
   $("temp").textContent = fmt(state.temp, 1);
 }
+setInterval(renderClimate, 30000);
 
 function renderMap(loc) {
   if (!loc) {
@@ -207,12 +225,20 @@ function changeTemp(delta) {
 $("tempDown").onclick = () => changeTemp(-0.5);
 $("tempUp").onclick = () => changeTemp(0.5);
 
-$("climateBtn").onclick = () => {
-  const on = !state.data?.climate_on;
-  runJob($("climateBtn"), () =>
-    api("/api/climate", { method: "POST", body: JSON.stringify({ on, temperature: state.temp }) }),
-    on ? "Klima ein" : "Klima aus");
-};
+async function setClimate(on) {
+  state.climatePending = on ? "on" : "off";
+  renderClimate();
+  try {
+    await runJob($(on ? "climateOn" : "climateOff"), () =>
+      api("/api/climate", { method: "POST", body: JSON.stringify({ on, temperature: state.temp }) }),
+      on ? "Klima ein" : "Klima aus");
+  } finally {
+    state.climatePending = undefined;
+    renderClimate();
+  }
+}
+$("climateOn").onclick = () => setClimate(true);
+$("climateOff").onclick = () => setClimate(false);
 
 document.querySelectorAll(".action").forEach((b) => {
   b.onclick = () => {
@@ -562,8 +588,8 @@ $("notifyBtn").onclick = async () => {
 
 $("notifyTest").onclick = async () => {
   try {
-    await api("/api/notify/test", { method: "POST" });
-    toast("Test-Benachrichtigung gesendet");
+    const r = await api("/api/notify/test", { method: "POST" });
+    toast(r.errors?.length ? `Gesendet, aber: ${r.errors.join("; ")}` : "Test-Benachrichtigung gesendet – kommt in wenigen Sekunden");
   } catch (e) {
     toast(`⚠️ ${e.message}`);
   }
