@@ -32,6 +32,8 @@ docker compose up -d --build
 
 Die App ist dann unter <http://localhost:8765> erreichbar.
 
+Update auf die neueste Version: `./update.sh` (holt den Code per `git pull` und baut neu).
+
 ### Auf einer Synology NAS
 
 Schritt-für-Schritt-Anleitung inklusive Zugriff von unterwegs (Tailscale oder Reverse Proxy):
