@@ -64,11 +64,13 @@ Die App startet dann wie eine normale App im Vollbild. Vollständig installierba
 
 ## Eigenes Foto
 
-Ohne eigenes Foto zeigt die App oben eine schlichte Auto-Silhouette. Ein Foto
-(freigestellt, mit transparentem Hintergrund, am besten im Querformat ca. 1200 × 670 px)
-als `data/car.webp`, `data/car.png` oder `data/car.jpg` ablegen – auf der Synology also
-`/volume1/docker/elektroauto/data/car.webp`. Es wird sofort angezeigt und bleibt bei
-Updates erhalten. Der Ordner `data/` ist nicht im Repository: Fotos aus dem Netz werden
+Ohne eigenes Foto zeigt die App oben eine schlichte Auto-Silhouette. Ein Foto als
+`data/car.jpg`, `data/car.png` oder `data/car.webp` ablegen – auf der Synology also z.B.
+`/volume1/docker/elektroauto/data/car.jpg`. Ein **weißer oder heller Hintergrund wird
+automatisch entfernt**, das Bild zugeschnitten und verkleinert (Ergebnis in
+`data/.car-cutout.png`). Ein bereits freigestelltes Bild mit Transparenz bleibt unverändert.
+Gibt es mehrere, wird das neueste verwendet. Das Foto erscheint beim nächsten Laden der
+App und bleibt bei Updates erhalten. Der Ordner `data/` ist nicht im Repository: Fotos aus dem Netz werden
 so nicht veröffentlicht.
 
 ## Benachrichtigungen

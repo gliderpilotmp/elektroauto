@@ -27,6 +27,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+import carimage
 from notify import Notifier
 from store import Store
 
@@ -463,6 +464,7 @@ async def notify_info(endpoint: str | None = None) -> dict[str, Any]:
         "settings": notifier.settings(),
         "subscribed": store.has_subscription(endpoint) if endpoint else False,
         "devices": len(store.subscriptions()),
+        "ntfy": notifier.has_ntfy,
     }
 
 
@@ -498,13 +500,11 @@ async def notify_test() -> dict[str, Any]:
 
 @app.get("/car-image")
 async def car_image() -> FileResponse:
-    """Foto des Autos: data/car.webp (oder .png/.jpg), sonst ein Platzhalter.
-    Das Foto liegt bewusst nicht im Repository."""
+    """Foto des Autos aus data/car.webp|png|jpg, automatisch freigestellt;
+    sonst ein Platzhalter. Das Foto liegt bewusst nicht im Repository."""
 
-    for name in ("car.webp", "car.png", "car.jpg"):
-        if (DATA_DIR / name).exists():
-            return FileResponse(DATA_DIR / name, headers={"Cache-Control": "no-cache"})
-    return FileResponse(FRONTEND / "car-placeholder.svg", headers={"Cache-Control": "no-cache"})
+    path = await asyncio.to_thread(carimage.cutout, DATA_DIR)
+    return FileResponse(path or FRONTEND / "car-placeholder.svg", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/")
