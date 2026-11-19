@@ -1,0 +1,12 @@
+# Startet die App z.B. auf einer Synology (Container Manager → Projekt)
+# oder überall mit: docker compose up -d --build
+services:
+  elektroauto:
+    build: .
+    container_name: elektroauto
+    env_file: .env
+    environment:
+      - TZ=Europe/Vienna
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

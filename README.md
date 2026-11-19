@@ -25,9 +25,13 @@ Dann <http://localhost:8000> öffnen. Ohne Zugangsdaten startet ein **Demo-Modus
 ### Mit Docker
 
 ```bash
-docker build -t elektrocar .
-docker run -d --env-file .env -p 8000:8000 elektrocar
+docker compose up -d --build
 ```
+
+### Auf einer Synology NAS
+
+Schritt-für-Schritt-Anleitung inklusive Zugriff von unterwegs (Tailscale oder Reverse Proxy):
+👉 [docs/SYNOLOGY.md](docs/SYNOLOGY.md)
 
 ## Einstellungen (`.env`)
 
@@ -42,7 +46,10 @@ docker run -d --env-file .env -p 8000:8000 elektrocar
 
 ## Aufs Handy
 
-Seite im Browser öffnen → „Zum Startbildschirm hinzufügen“. Die App startet dann wie eine normale App im Vollbild.
+- **iPhone:** Seite in Safari öffnen → Teilen → „Zum Home-Bildschirm“
+- **Android:** Seite in Chrome öffnen → ⋮ → „App installieren“
+
+Die App startet dann wie eine normale App im Vollbild. Vollständig installierbar ist sie nur über `https://` (siehe [docs/SYNOLOGY.md](docs/SYNOLOGY.md)).
 
 ## Hinweise
 
