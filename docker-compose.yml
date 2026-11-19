@@ -8,5 +8,5 @@ services:
     environment:
       - TZ=Europe/Vienna
     ports:
-      - "8000:8000"
+      - "8765:8000"
     restart: unless-stopped

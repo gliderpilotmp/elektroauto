@@ -28,6 +28,8 @@ Dann <http://localhost:8000> öffnen. Ohne Zugangsdaten startet ein **Demo-Modus
 docker compose up -d --build
 ```
 
+Die App ist dann unter <http://localhost:8765> erreichbar.
+
 ### Auf einer Synology NAS
 
 Schritt-für-Schritt-Anleitung inklusive Zugriff von unterwegs (Tailscale oder Reverse Proxy):

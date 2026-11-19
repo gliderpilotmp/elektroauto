@@ -46,10 +46,13 @@ Die App läuft jetzt dauerhaft und startet nach einem Neustart des NAS von selbs
 Im Heimnetz ist sie erreichbar unter:
 
 ```
-http://<IP-deines-NAS>:8000
+http://<IP-deines-NAS>:8765
 ```
 
 Die IP findest du unter **Systemsteuerung → Netzwerk → Netzwerkschnittstelle**.
+
+> Port 8765 wurde gewählt, weil 8000 oft schon belegt ist (z.B. von Portainer).
+> Für einen anderen Port in `docker-compose.yml` nur die **linke** Zahl ändern, z.B. `"9123:8000"`.
 
 ## 4. Von unterwegs erreichen
 
@@ -63,7 +66,7 @@ Privates Netz zwischen Handy und NAS: kein offener Port, nichts ist öffentlich 
 1. Kostenloses Konto auf <https://tailscale.com> anlegen.
 2. Paket-Zentrum → **Tailscale** installieren, öffnen und mit dem Konto anmelden.
 3. Am Handy die **Tailscale-App** installieren und mit demselben Konto anmelden.
-4. Fertig: Am Handy ist die App unter `http://<NAS-Name>:8000` erreichbar,
+4. Fertig: Am Handy ist die App unter `http://<NAS-Name>:8765` erreichbar,
    den Namen zeigt die Tailscale-App.
 
 **Mit HTTPS** (nötig für die volle App-Installation unter Android):
@@ -74,7 +77,7 @@ Privates Netz zwischen Handy und NAS: kein offener Port, nichts ist öffentlich 
    (SSH aktivieren: Systemsteuerung → Terminal & SNMP):
 
    ```bash
-   sudo /var/packages/Tailscale/target/bin/tailscale serve --bg 8000
+   sudo /var/packages/Tailscale/target/bin/tailscale serve --bg 8765
    ```
 
 3. Die App ist dann unter `https://<NAS-Name>.<dein-tailnet>.ts.net` erreichbar.
@@ -90,7 +93,7 @@ Die App ist dann öffentlich im Internet erreichbar und nur durch `APP_PASSWORD`
    `auto.meinname.synology.me` hinzufügen.
 3. **Systemsteuerung → Anmeldeportal → Erweitert → Reverse Proxy → Erstellen**:
    - Quelle: `HTTPS`, Hostname `auto.meinname.synology.me`, Port `443`
-   - Ziel: `HTTP`, Hostname `localhost`, Port `8000`
+   - Ziel: `HTTP`, Hostname `localhost`, Port `8765`
 4. Im Router Port **443** auf das NAS weiterleiten.
 5. Die App ist unter `https://auto.meinname.synology.me` erreichbar.
 
@@ -115,5 +118,7 @@ entsteht meist nur ein Lesezeichen am Startbildschirm, das aber genauso funktion
 ## Probleme?
 
 - **Container Manager → Projekt → elektroauto → Protokoll** zeigt Fehlermeldungen.
+- „driver failed programming external connectivity“ beim Start: Der Port ist schon belegt.
+  Per SSH mit `sudo docker ps` nachsehen, wer ihn nutzt, und in `docker-compose.yml` einen anderen wählen.
 - „Uconnect nicht erreichbar“: E-Mail, Passwort und `UCONNECT_BRAND` prüfen.
 - Klima oder Türen gehen nicht: `UCONNECT_PIN` prüfen. Das ist die PIN aus der Fiat-App.
