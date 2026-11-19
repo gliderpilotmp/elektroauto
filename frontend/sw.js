@@ -1,9 +1,16 @@
 // Minimaler Service Worker: App-Hülle offline verfügbar, API immer live
-const CACHE = "elektrocar-v2";
+const CACHE = "elektrocar-v3";
 const SHELL = ["/", "/style.css", "/app.js", "/icon.svg", "/manifest.webmanifest"];
-self.addEventListener("install", (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))));
+// Neue Version sofort aktivieren, sonst bleibt ein alter Service Worker ohne
+// Push-Unterstützung aktiv, bis die App komplett geschlossen wurde
+self.addEventListener("install", (e) => {
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
+});
 self.addEventListener("activate", (e) =>
-  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))));
+  e.waitUntil(caches.keys()
+    .then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim())));
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin || url.pathname.startsWith("/api/")) return;

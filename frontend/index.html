@@ -74,12 +74,37 @@
           <div class="temp-value"><span id="temp">21</span><small>°C</small></div>
           <button class="round" id="tempUp" aria-label="Wärmer">+</button>
         </div>
-        <button class="power" id="climateBtn">
+      </div>
+      <div class="climate-buttons">
+        <button class="power" id="climateOn">
           <svg viewBox="0 0 24 24"><path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>
-          <span id="climateBtnText">Einschalten</span>
+          Einschalten
+        </button>
+        <button class="power" id="climateOff">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          Ausschalten
         </button>
       </div>
-      <p class="hint">Die Vorklimatisierung läuft ca. 15 Minuten. Der Befehl braucht bis zu einer Minute, bis das Auto bestätigt.</p>
+      <p class="hint" id="climateHint">Die Vorklimatisierung läuft ca. 15 Minuten. Der Befehl braucht bis zu einer Minute, bis das Auto bestätigt.</p>
+    </section>
+
+    <!-- Schnellaktionen -->
+    <section class="card">
+      <div class="card-head"><h2>Schnellaktionen</h2></div>
+      <div class="actions">
+        <button class="action" data-cmd="RDL">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Verriegeln
+        </button>
+        <button class="action" data-cmd="RDU">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>Entriegeln
+        </button>
+        <button class="action" data-cmd="HBLF">
+          <svg viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6L7 10H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>Hupe &amp; Licht
+        </button>
+        <button class="action" data-cmd="CNOW">
+          <svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Laden starten
+        </button>
+      </div>
     </section>
 
     <!-- Position -->
@@ -135,24 +160,6 @@
       <p class="hint" id="notifyHint">Die Benachrichtigung kommt, während das Auto lädt, auch wenn die App geschlossen ist.</p>
     </section>
 
-    <!-- Schnellaktionen -->
-    <section class="card">
-      <div class="card-head"><h2>Schnellaktionen</h2></div>
-      <div class="actions">
-        <button class="action" data-cmd="RDL">
-          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Verriegeln
-        </button>
-        <button class="action" data-cmd="RDU">
-          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>Entriegeln
-        </button>
-        <button class="action" data-cmd="HBLF">
-          <svg viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6L7 10H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>Hupe &amp; Licht
-        </button>
-        <button class="action" data-cmd="CNOW">
-          <svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Laden starten
-        </button>
-      </div>
-    </section>
 
     <p class="footer" id="updated">–</p>
   </main>

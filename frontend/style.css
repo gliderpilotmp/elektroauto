@@ -108,12 +108,10 @@ main { padding: 8px 16px 32px; display: grid; grid-template-columns: minmax(0, 1
   background: var(--card-2); color: var(--muted);
 }
 .climate.on .pill { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
-.climate-body { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; }
-@media (max-width: 440px) {
-  .climate-body { grid-template-columns: 1fr; }
-  .temp { justify-content: space-between; }
-  .power { justify-content: center; }
-}
+.climate-body { display: block; }
+.temp { justify-content: space-between; }
+.climate-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.climate-buttons .power { justify-content: center; }
 .temp { display: flex; align-items: center; gap: 10px; }
 .temp-value { font-size: 40px; font-weight: 700; min-width: 92px; text-align: center; letter-spacing: -.03em; }
 .temp-value small { font-size: 18px; color: var(--muted); }
@@ -133,7 +131,14 @@ main { padding: 8px 16px 32px; display: grid; grid-template-columns: minmax(0, 1
   width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round;
 }
-.power.on, .climate.on .power { background: var(--accent); color: #04261c; }
+.power.on { background: var(--accent); color: #04261c; }
+.power.pending { position: relative; color: transparent; }
+.power.pending::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 18px; height: 18px;
+  border: 2px solid var(--text); border-right-color: transparent; border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+.climate.waiting .pill { background: color-mix(in srgb, var(--accent-2) 18%, transparent); color: var(--accent-2); }
 .power.busy { opacity: .6; pointer-events: none; }
 .climate.on { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
 .hint { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
