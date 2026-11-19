@@ -7,6 +7,10 @@ services:
     env_file: .env
     environment:
       - TZ=Europe/Vienna
+      - DATA_DIR=/data
+    volumes:
+      # Verlauf, Benachrichtigungs-Einstellungen und Push-Schlüssel
+      - ./data:/data
     ports:
       - "8765:8000"
     restart: unless-stopped

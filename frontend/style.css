@@ -10,6 +10,9 @@
   --warm: #ff8a4c;
   --cold: #4fa8ff;
   --danger: #ff5d6c;
+  --chart-soc: #19d3a2;
+  --chart-km: #4fa8ff;
+  --grid: #263140;
   --radius: 22px;
   color-scheme: dark;
 }
@@ -22,6 +25,9 @@
     --line: #dde4ec;
     --text: #111821;
     --muted: #5d6b7c;
+    --chart-soc: #0b9b76;
+    --chart-km: #2a78d6;
+    --grid: #e3e8ee;
     color-scheme: light;
   }
 }
@@ -179,3 +185,65 @@ dialog input {
   border: 1px solid var(--line); background: var(--card-2); color: var(--text); font: inherit;
 }
 dialog .power { width: 100%; justify-content: center; }
+
+/* Verlauf */
+.seg { display: inline-flex; background: var(--card-2); border-radius: 12px; padding: 3px; }
+.seg button {
+  border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px;
+  padding: 6px 10px; border-radius: 9px; cursor: pointer;
+}
+.seg button[aria-selected="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / .2); }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 6px; }
+.kpis > div { display: grid; }
+.kpis .value { font-size: 20px; }
+.chart-title { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 0 8px; display: flex; gap: 12px; align-items: center; }
+.legend-charging { font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.legend-charging::before {
+  content: ""; width: 12px; height: 12px; border-radius: 3px;
+  background: color-mix(in srgb, var(--chart-soc) 22%, transparent);
+}
+.chart { position: relative; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .line { fill: none; stroke: var(--chart-soc); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { fill: color-mix(in srgb, var(--chart-soc) 10%, transparent); }
+.chart .band { fill: color-mix(in srgb, var(--chart-soc) 22%, transparent); }
+.chart .bar { fill: var(--chart-km); }
+.chart .bar.active { fill: color-mix(in srgb, var(--chart-km) 75%, var(--text)); }
+.chart .cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart .dot { fill: var(--chart-soc); stroke: var(--card); stroke-width: 2; }
+.chart .empty { fill: var(--muted); font-size: 13px; }
+.tip {
+  position: absolute; top: 0; pointer-events: none; transform: translateX(-50%);
+  background: var(--text); color: var(--bg); font-size: 12px; line-height: 1.3;
+  padding: 6px 9px; border-radius: 9px; white-space: nowrap; z-index: 2;
+}
+.tip b { font-size: 14px; }
+.sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sessions li {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center;
+  background: var(--card-2); border-radius: 14px; padding: 10px 14px;
+}
+.sessions .when { font-weight: 600; font-size: 14px; }
+.sessions .meta { color: var(--muted); font-size: 12px; grid-column: 1; }
+.sessions .gain { grid-row: 1 / span 2; grid-column: 2; font-weight: 700; font-size: 16px; color: var(--chart-soc); }
+.sessions .active { color: var(--chart-soc); }
+.sessions .none { color: var(--muted); font-size: 14px; background: none; padding: 0; }
+
+/* Benachrichtigungen */
+.switch { display: flex; align-items: center; gap: 12px; padding: 8px 0; cursor: pointer; }
+.switch input {
+  appearance: none; width: 44px; height: 26px; border-radius: 99px; flex: none;
+  background: var(--card-2); border: 1px solid var(--line); position: relative; cursor: pointer;
+  transition: background .2s;
+}
+.switch input::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+  border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s;
+}
+.switch input:checked { background: var(--accent); border-color: var(--accent); }
+.switch input:checked::after { transform: translateX(18px); background: #fff; }
+.notify-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+#notifyCard.on .pill { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.link-btn { border: 0; background: none; color: var(--accent-2); font: inherit; font-size: 14px; cursor: pointer; padding: 8px 0; }
