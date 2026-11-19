@@ -3,6 +3,9 @@
 Spricht über die (inoffizielle) Uconnect-Cloud-API mit dem Auto
 (Bibliothek ``py-uconnect``) und stellt eine kleine REST-API sowie die
 Web-Oberfläche bereit. Ohne Zugangsdaten läuft ein Demo-Modus.
+
+Ein Hintergrunddienst fragt das Auto regelmäßig ab, speichert den Verlauf
+und schickt Benachrichtigungen bei 80 % und 100 % Ladezustand.
 """
 
 from __future__ import annotations
@@ -14,7 +17,8 @@ import random
 import secrets
 import time
 import uuid
-from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +26,9 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+from notify import Notifier
+from store import Store
 
 log = logging.getLogger("elektrocar")
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +45,10 @@ CACHE_SECONDS = int(os.environ.get("CACHE_SECONDS", "60"))
 DEMO = os.environ.get("DEMO", "").lower() in ("1", "true", "yes") or not (
     EMAIL and PASSWORD
 )
+DATA_DIR = Path(os.environ.get("DATA_DIR") or Path(__file__).resolve().parent.parent / "data")
+# Wie oft das Auto im Hintergrund abgefragt wird (Minuten); beim Laden öfter
+POLL_MINUTES = float(os.environ.get("POLL_MINUTES") or (1 if DEMO else 10))
+POLL_MINUTES_CHARGING = float(os.environ.get("POLL_MINUTES_CHARGING") or (1 if DEMO else 5))
 
 # Befehle, die die App senden darf (Name -> Beschreibung)
 ALLOWED_COMMANDS = {
@@ -234,6 +245,70 @@ class DemoSource:
 
 
 source: UconnectSource | DemoSource = DemoSource() if DEMO else UconnectSource()
+store = Store(DATA_DIR / ("demo.db" if DEMO else "elektroauto.db"))
+notifier = Notifier(store, DATA_DIR)
+
+
+def _seed_demo_history() -> None:
+    """Erzeugt 30 Tage Beispiel-Verlauf für den Demo-Modus."""
+
+    with store.lock:
+        if store.db.execute("SELECT 1 FROM snapshots LIMIT 1").fetchone():
+            return
+    rng = random.Random(500)
+    start = datetime.now() - timedelta(days=30)
+    soc, odo, rows, charging_tonight = 64.0, 17_510.0, [], False
+    t = start.replace(minute=0, second=0, microsecond=0)
+    while t < datetime.now() - timedelta(minutes=30):
+        h, weekday = t.hour, t.weekday() < 5
+        charging = 0
+        if t.minute == 0 and ((weekday and h in (7, 17)) or (not weekday and h == 11 and rng.random() < 0.6)):
+            km = rng.uniform(8, 16) if weekday else rng.uniform(15, 45)
+            odo += km
+            soc = max(10.0, soc - km / 2.6)
+        elif (h >= 22 or h < 6) and soc < 100 and (soc < 55 or charging_tonight):
+            charging = 1
+            charging_tonight = True
+            soc = min(100.0, soc + 4.5)
+        if h == 12:
+            charging_tonight = False
+        rows.append((int(t.timestamp()), round(soc, 1), round(soc * 3.1), round(odo, 1),
+                     charging, 1 if charging or h >= 20 or h < 7 else 0,
+                     48.20849, 16.37208))
+        t += timedelta(minutes=30)
+    with store.lock, store.db:
+        store.db.executemany("INSERT INTO snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?)", rows)
+    source.state["state_of_charge"] = soc
+    source.state["odometer"] = odo
+
+
+if DEMO:
+    _seed_demo_history()
+
+
+async def _observe(data: dict[str, Any]) -> None:
+    """Neue Fahrzeugdaten: Verlauf speichern und ggf. benachrichtigen."""
+
+    try:
+        store.record(data)
+        await notifier.check(data)
+    except Exception:  # noqa: BLE001
+        log.exception("Verlauf/Benachrichtigung fehlgeschlagen")
+
+
+async def _poller() -> None:
+    """Fragt das Auto im Hintergrund ab, auch wenn die App nicht offen ist."""
+
+    while True:
+        charging = False
+        try:
+            data = await source.status(force=True)
+            charging = bool(data.get("charging"))
+            await _observe(data)
+        except Exception as err:  # noqa: BLE001
+            log.warning("Hintergrund-Abfrage fehlgeschlagen: %s", err)
+        minutes = POLL_MINUTES_CHARGING if charging else POLL_MINUTES
+        await asyncio.sleep(max(0.5, minutes) * 60)
 
 # Laufende Fernbefehle: id -> {"state": "pending"|"ok"|"failed", ...}
 jobs: dict[str, dict[str, Any]] = {}
@@ -262,7 +337,14 @@ def _start_job(label: str, coro) -> dict[str, Any]:
 # API
 # --------------------------------------------------------------------------
 
-app = FastAPI(title="Elektrocar", docs_url=None, redoc_url=None)
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    task = asyncio.create_task(_poller())
+    yield
+    task.cancel()
+
+
+app = FastAPI(title="Elektrocar", docs_url=None, redoc_url=None, lifespan=lifespan)
 
 
 def auth(x_app_password: str | None = Header(default=None)) -> None:
@@ -289,6 +371,7 @@ async def status(force: bool = False) -> dict[str, Any]:
     except Exception as err:  # noqa: BLE001
         log.exception("Status fehlgeschlagen")
         raise HTTPException(502, f"Uconnect nicht erreichbar: {err}") from err
+    await _observe(data)
     return {**data, "demo": DEMO}
 
 
@@ -316,6 +399,60 @@ async def job(job_id: str) -> dict[str, Any]:
     if job_id not in jobs:
         raise HTTPException(404, "Unbekannter Auftrag")
     return jobs[job_id]
+
+
+@app.get("/api/history", dependencies=[Depends(auth)])
+async def history(days: int = 7) -> dict[str, Any]:
+    return store.history(min(max(days, 1), 365))
+
+
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: dict[str, str]
+    expirationTime: float | None = None
+
+
+class NotifySettings(BaseModel):
+    soc80: bool | None = Field(default=None, alias="80")
+    soc100: bool | None = Field(default=None, alias="100")
+
+
+@app.get("/api/notify", dependencies=[Depends(auth)])
+async def notify_info(endpoint: str | None = None) -> dict[str, Any]:
+    return {
+        "public_key": notifier.public_key,
+        "settings": notifier.settings(),
+        "subscribed": store.has_subscription(endpoint) if endpoint else False,
+        "devices": len(store.subscriptions()),
+    }
+
+
+@app.post("/api/notify/settings", dependencies=[Depends(auth)])
+async def notify_settings(req: NotifySettings) -> dict[str, bool]:
+    notifier.set_settings(
+        {k: v for k, v in (("80", req.soc80), ("100", req.soc100)) if v is not None}
+    )
+    return notifier.settings()
+
+
+@app.post("/api/notify/subscribe", dependencies=[Depends(auth)])
+async def subscribe(sub: PushSubscription) -> dict[str, Any]:
+    store.add_subscription(sub.model_dump())
+    return {"ok": True}
+
+
+@app.post("/api/notify/unsubscribe", dependencies=[Depends(auth)])
+async def unsubscribe(sub: PushSubscription) -> dict[str, Any]:
+    store.remove_subscription(sub.endpoint)
+    return {"ok": True}
+
+
+@app.post("/api/notify/test", dependencies=[Depends(auth)])
+async def notify_test() -> dict[str, Any]:
+    sent = await notifier.send("🔔 Test", "Benachrichtigungen funktionieren!", tag="test")
+    if not sent:
+        raise HTTPException(400, "Kein Gerät für Benachrichtigungen angemeldet")
+    return {"sent": sent}
 
 
 @app.get("/")

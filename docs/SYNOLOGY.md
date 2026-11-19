@@ -109,9 +109,17 @@ Die App startet dann im Vollbild wie eine normale App.
 Über `https://` wird sie vollständig installiert. Über `http://` im Heimnetz
 entsteht meist nur ein Lesezeichen am Startbildschirm, das aber genauso funktioniert.
 
+## 6. Benachrichtigungen einschalten
+
+1. Die App über die **https://…ts.net**-Adresse öffnen (Schritt 4, Variante A mit HTTPS).
+   Über `http://` funktionieren Benachrichtigungen nicht.
+2. **iPhone:** von dem Symbol am Home-Bildschirm aus öffnen, nicht in Safari.
+3. Karte **Benachrichtigungen** → „Auf diesem Gerät aktivieren“ → erlauben → „Test senden“.
+
 ## Aktualisieren
 
-1. Neue Dateien von GitHub in `docker/elektroauto` kopieren (`.env` behalten).
+1. Neue Dateien von GitHub in `docker/elektroauto` kopieren (`.env` und den Ordner `data/` behalten:
+   darin liegen Verlauf und Benachrichtigungs-Einstellungen).
 2. **Container Manager → Projekt → elektroauto → Aktion → Erstellen**:
    baut die App neu und startet sie.
 

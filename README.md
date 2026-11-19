@@ -7,6 +7,8 @@ Eine Web-App fürs Handy, um deinen Fiat 500e zu verwalten:
 - 📍 **Position** auf der Karte, mit Adresse und Route-Link
 - ❄️🔥 **Klimaanlage** ein/aus mit Wunschtemperatur
 - 🔒 Extras: Verriegeln, Entriegeln, Hupe & Licht, Laden starten
+- 🔔 **Benachrichtigungen** aufs Handy bei 80 % und bei vollem Akku – auch wenn die App geschlossen ist
+- 📈 **Verlauf**: Ladezustand, Kilometer pro Tag und Ladevorgänge der letzten 24 Std. / 7 / 30 Tage
 
 Die App spricht über die Uconnect-Cloud mit dem Auto (wie die offizielle Fiat-App)
 und nutzt dafür die inoffizielle Bibliothek [py-uconnect](https://pypi.org/project/py-uconnect/).
@@ -45,6 +47,10 @@ Schritt-für-Schritt-Anleitung inklusive Zugriff von unterwegs (Tailscale oder R
 | `UCONNECT_VIN` | optional, falls mehrere Autos im Konto sind |
 | `APP_PASSWORD` | schützt die App mit einem Passwort – **unbedingt setzen**, wenn sie aus dem Internet erreichbar ist |
 | `CACHE_SECONDS` | wie lange Daten zwischengespeichert werden (Standard 60) |
+| `POLL_MINUTES` / `POLL_MINUTES_CHARGING` | wie oft das Auto im Hintergrund abgefragt wird (Standard 10 bzw. 5 Minuten beim Laden) |
+| `DATA_DIR` | Ordner für Verlauf und Einstellungen (Docker: `/data`, liegt am NAS im Projektordner unter `data/`) |
+| `NTFY_URL` | optional: Benachrichtigungen zusätzlich über [ntfy](https://ntfy.sh) |
+| `VAPID_SUBJECT` | optional: Kontaktadresse für Web-Push, z.B. `mailto:du@example.com` |
 
 ## Aufs Handy
 
@@ -52,6 +58,22 @@ Schritt-für-Schritt-Anleitung inklusive Zugriff von unterwegs (Tailscale oder R
 - **Android:** Seite in Chrome öffnen → ⋮ → „App installieren“
 
 Die App startet dann wie eine normale App im Vollbild. Vollständig installierbar ist sie nur über `https://` (siehe [docs/SYNOLOGY.md](docs/SYNOLOGY.md)).
+
+## Benachrichtigungen
+
+1. Die App über **https://** öffnen (z.B. die Tailscale-Adresse, siehe [docs/SYNOLOGY.md](docs/SYNOLOGY.md)).
+2. **iPhone:** die App zuerst zum Home-Bildschirm hinzufügen und von dort öffnen (ab iOS 16.4).
+3. In der Karte **Benachrichtigungen** auf „Auf diesem Gerät aktivieren“ tippen und erlauben.
+4. Mit „Test senden“ prüfen.
+
+Das NAS fragt das Auto im Hintergrund ab (beim Laden alle 5 Minuten). Die Meldung kommt
+deshalb mit bis zu ein paar Minuten Verzögerung. Ist am Auto ein Ladelimit unter 100 %
+eingestellt, kommt die „Akku voll“-Meldung nicht.
+
+## Verlauf
+
+Der Verlauf beginnt, sobald die App läuft, und wird in `data/elektroauto.db` gespeichert.
+Bei Docker liegt der Ordner `data/` im Projektordner und bleibt bei Updates erhalten.
 
 ## Hinweise
 

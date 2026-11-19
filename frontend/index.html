@@ -92,6 +92,49 @@
       <p class="hint" id="locInfo">–</p>
     </section>
 
+    <!-- Verlauf -->
+    <section class="card history">
+      <div class="card-head">
+        <h2>Verlauf</h2>
+        <div class="seg" role="tablist" id="range">
+          <button role="tab" data-days="1">24 Std.</button>
+          <button role="tab" data-days="7" aria-selected="true">7 Tage</button>
+          <button role="tab" data-days="30">30 Tage</button>
+        </div>
+      </div>
+      <div class="kpis">
+        <div><span class="label">Gefahren</span><span class="value" id="hDriven">–</span></div>
+        <div><span class="label">Ladevorgänge</span><span class="value" id="hSessions">–</span></div>
+        <div><span class="label">Geladen</span><span class="value" id="hCharged">–</span></div>
+      </div>
+      <h3 class="chart-title">Ladezustand <span class="legend-charging">Laden</span></h3>
+      <div class="chart" id="socChart"></div>
+      <div id="kmWrap">
+        <h3 class="chart-title">Kilometer pro Tag</h3>
+        <div class="chart" id="kmChart"></div>
+      </div>
+      <h3 class="chart-title">Letzte Ladevorgänge</h3>
+      <ul class="sessions" id="sessionList"></ul>
+    </section>
+
+    <!-- Benachrichtigungen -->
+    <section class="card" id="notifyCard">
+      <div class="card-head">
+        <h2>Benachrichtigungen</h2>
+        <span class="pill" id="notifyState">Aus</span>
+      </div>
+      <label class="switch"><input type="checkbox" data-level="80"><span>Bei 80 % Ladezustand</span></label>
+      <label class="switch"><input type="checkbox" data-level="100"><span>Wenn der Akku voll ist (100 %)</span></label>
+      <div class="notify-actions">
+        <button class="power" id="notifyBtn">
+          <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+          <span id="notifyBtnText">Auf diesem Gerät aktivieren</span>
+        </button>
+        <button class="link-btn" id="notifyTest" hidden>Test senden</button>
+      </div>
+      <p class="hint" id="notifyHint">Die Benachrichtigung kommt, während das Auto lädt, auch wenn die App geschlossen ist.</p>
+    </section>
+
     <!-- Schnellaktionen -->
     <section class="card">
       <div class="card-head"><h2>Schnellaktionen</h2></div>
