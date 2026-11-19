@@ -216,8 +216,8 @@ async function runJob(button, request, label) {
 // Ereignisse
 $("refresh").onclick = async () => {
   try {
-    await api("/api/wake", { method: "POST" });
-    toast("Auto wird aufgeweckt – frische Daten folgen in Kürze.");
+    const r = await api("/api/wake", { method: "POST" });
+    toast(r.notes?.length ? `⚠️ ${r.notes.join(" · ")}` : "Auto wird aufgeweckt – frische Daten folgen in Kürze.");
   } catch {}
   await load(true);
   setTimeout(() => load(true), 30000);
