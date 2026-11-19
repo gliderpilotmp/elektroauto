@@ -86,16 +86,31 @@ function render(d) {
   renderClimate();
 
   // Aktionen nur, wenn das Auto sie unterstützt
-  document.querySelectorAll(".action").forEach((b) => {
-    const cmd = b.dataset.cmd;
-    const ok = d.supported_commands.includes(cmd) ||
-      (cmd === "CNOW" && d.supported_commands.includes("CNOW2"));
-    b.disabled = !ok;
-    b.title = ok ? "" : "Wird von deinem Auto nicht unterstützt";
-  });
+  renderActions(d.supported_commands || []);
 
   renderMap(d.location);
   $("updated").textContent = `Stand: ${timeAgo(d.updated)}`;
+}
+
+// Nur Schnellaktionen zeigen, die das Auto unterstützt
+function renderActions(supported) {
+  const has = (c) => supported.includes(c) || (c === "CNOW" && supported.includes("CNOW2"));
+  const visible = [];
+  document.querySelectorAll(".action").forEach((b) => {
+    if (b.dataset.alt) {
+      // Hupe & Licht (HBLF) oder ersatzweise nur Licht (ROLIGHTS)
+      const useAlt = !has("HBLF") && has(b.dataset.alt);
+      b.dataset.cmd = useAlt ? b.dataset.alt : "HBLF";
+      b.querySelector("span").textContent = useAlt ? "Licht" : "Hupe & Licht";
+    }
+    b.hidden = !has(b.dataset.cmd);
+    b.classList.remove("span3", "span6");
+    if (!b.hidden) visible.push(b);
+  });
+  const rest = visible.length % 3;
+  if (rest === 2) visible.slice(-2).forEach((b) => b.classList.add("span3"));
+  if (rest === 1) visible.at(-1).classList.add("span6");
+  document.querySelector(".actions").closest(".card").hidden = !visible.length;
 }
 
 function renderClimate() {
@@ -216,8 +231,8 @@ async function runJob(button, request, label) {
 // Ereignisse
 $("refresh").onclick = async () => {
   try {
-    await api("/api/wake", { method: "POST" });
-    toast("Auto wird aufgeweckt – frische Daten folgen in Kürze.");
+    const r = await api("/api/wake", { method: "POST" });
+    toast(r.notes?.length ? `⚠️ ${r.notes.join(" · ")}` : "Auto wird aufgeweckt – frische Daten folgen in Kürze.");
   } catch {}
   await load(true);
   setTimeout(() => load(true), 30000);
@@ -249,7 +264,7 @@ $("climateOff").onclick = () => setClimate(false);
 
 document.querySelectorAll(".action").forEach((b) => {
   b.onclick = () => {
-    if (b.dataset.cmd === "RDU" && !confirm("Auto wirklich entriegeln?")) return;
+    if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
     runJob(b, () => api(`/api/command/${b.dataset.cmd}`, { method: "POST" }), b.textContent.trim());
   };
 });

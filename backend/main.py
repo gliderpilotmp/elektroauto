@@ -54,12 +54,17 @@ POLL_MINUTES = float(os.environ.get("POLL_MINUTES") or (1 if DEMO else 10))
 CLIMATE_MINUTES = float(os.environ.get("CLIMATE_MINUTES") or 15)
 POLL_MINUTES_CHARGING = float(os.environ.get("POLL_MINUTES_CHARGING") or (1 if DEMO else 5))
 
+# Aktualisieren-Knopf: nach so vielen Ablehnungen in Folge eine Pause einlegen
+WAKE_MAX_FAILS = 3
+WAKE_PAUSE_HOURS = 6
+
 # Befehle, die die App senden darf (Name -> Beschreibung)
 ALLOWED_COMMANDS = {
     "RDL": "Türen verriegeln",
     "RDU": "Türen entriegeln",
     "HBLF": "Hupe & Licht",
     "ROLIGHTS": "Licht",
+    "ROTRUNKUNLOCK": "Kofferraum öffnen",
     "CNOW": "Laden starten",
 }
 
@@ -67,6 +72,30 @@ ALLOWED_COMMANDS = {
 # --------------------------------------------------------------------------
 # Datenquellen
 # --------------------------------------------------------------------------
+
+
+def error_text(err: Exception) -> str:
+    """Lesbare Fehlermeldung, inkl. Begründung aus der Antwort von Fiat."""
+
+    status = getattr(err, "status", None)
+    body = getattr(err, "body", None)
+    reason = ""
+    if isinstance(body, dict):
+        parts = [str(body[k]) for k in ("message", "errorMessage", "description", "name", "code", "error")
+                 if body.get(k) not in (None, "")]
+        reason = " · ".join(dict.fromkeys(parts))
+    elif body:
+        reason = str(body).strip()
+    reason = reason[:200]
+    if status and reason:
+        return f"HTTP {status}: {reason}"
+    if status:
+        return f"HTTP {status} (ohne Begründung)"
+    return reason or str(err)
+
+
+def _hm(ts: float) -> str:
+    return datetime.fromtimestamp(ts).strftime("%H:%M")
 
 
 def _summary(v: dict[str, Any]) -> dict[str, Any]:
@@ -140,18 +169,43 @@ class UconnectSource:
             await self.status()
         return self.client.vehicles[self.vin]
 
-    async def wake(self) -> None:
-        """Bittet das Auto, frische Daten und Position hochzuladen."""
+    async def wake(self) -> list[str]:
+        """Bittet das Auto, frische Daten und Position hochzuladen.
+        Gibt Hinweise für die App zurück (z.B. Begründung einer Ablehnung)."""
+
+        from dataclasses import replace
 
         from py_uconnect.command import COMMAND_DEEP_REFRESH, COMMAND_REFRESH_LOCATION
 
         v = await self._vehicle()
-        for cmd in (COMMAND_DEEP_REFRESH, COMMAND_REFRESH_LOCATION):
-            if v.supports(cmd):
-                try:
-                    await self.client.command(v.vin, cmd)
-                except Exception as err:  # noqa: BLE001
-                    log.warning("%s fehlgeschlagen: %s", cmd, err)
+        # Nur die freigeschaltete Variante senden (DEEPREFRESH bzw. DEEPREFRESH2),
+        # ohne Ersatzversuche: sonst geht Fiats Begründung der Ablehnung verloren
+        deep = COMMAND_DEEP_REFRESH if "DEEPREFRESH2" in v.enabled_services \
+            else replace(COMMAND_DEEP_REFRESH, fallback=None)
+        notes: list[str] = []
+        for cmd, label in ((deep, "Daten"), (COMMAND_REFRESH_LOCATION, "Position")):
+            if not v.supports(cmd):
+                continue
+            key = f"wake_fail_{cmd.name}"
+            fail = store.get(key) or {"count": 0, "until": 0}
+            if time.time() < fail["until"]:
+                notes.append(f"{label} aktualisieren pausiert bis {_hm(fail['until'])} "
+                             "(Fiat hat zuletzt mehrmals abgelehnt)")
+                continue
+            try:
+                await self.client.command(v.vin, cmd)
+                store.set(key, {"count": 0, "until": 0})
+            except Exception as err:  # noqa: BLE001
+                reason = error_text(err)
+                count = fail["count"] + 1
+                until = time.time() + WAKE_PAUSE_HOURS * 3600 if count >= WAKE_MAX_FAILS else 0
+                store.set(key, {"count": count, "until": until, "reason": reason})
+                log.warning("%s abgelehnt (%d. Mal): %s", cmd, count, reason)
+                msg = f"{label} aktualisieren abgelehnt: {reason}"
+                if until:
+                    msg += f" – nächster Versuch ab {_hm(until)}"
+                notes.append(msg)
+        return notes
 
     async def climate(self, on: bool, temp: float | None) -> bool:
         from py_uconnect.command import (
@@ -205,8 +259,9 @@ class DemoSource:
             "door_driver_locked": True,
             "door_passenger_locked": True,
             "location": {"latitude": 48.20849, "longitude": 16.37208},
-            "supported_commands": ["RDL", "RDU", "HBLF", "ROLIGHTS", "ROPRECOND",
-                                   "ROPRECOND_OFF", "CNOW", "VF", "DEEPREFRESH"],
+            # wie beim echten 500e (kein HBLF, dafür ROLIGHTS und Kofferraum)
+            "supported_commands": ["RDL", "RDU", "ROLIGHTS", "ROPRECOND", "ROPRECOND_OFF",
+                                   "ROTRUNKUNLOCK", "CNOW", "VF", "DEEPREFRESH"],
         }
         self.last = time.time()
 
@@ -227,10 +282,11 @@ class DemoSource:
         self._tick()
         return _summary(self.state)
 
-    async def wake(self) -> None:
+    async def wake(self) -> list[str]:
         loc = self.state["location"]
         loc["latitude"] += random.uniform(-0.0005, 0.0005)
         loc["longitude"] += random.uniform(-0.0005, 0.0005)
+        return []
 
     async def climate(self, on: bool, temp: float | None) -> bool:
         await asyncio.sleep(2.5)
@@ -358,8 +414,9 @@ async def _run_job(job_id: str, coro) -> None:
         ok = await coro
         jobs[job_id].update(state="ok" if ok else "failed")
     except Exception as err:  # noqa: BLE001
-        log.exception("Befehl fehlgeschlagen")
-        jobs[job_id].update(state="failed", error=str(err))
+        reason = error_text(err)
+        log.warning("Befehl '%s' fehlgeschlagen: %s", jobs[job_id]["label"], reason)
+        jobs[job_id].update(state="failed", error=reason)
 
 
 def _start_job(label: str, coro) -> dict[str, Any]:
@@ -417,8 +474,11 @@ async def status(force: bool = False) -> dict[str, Any]:
 
 @app.post("/api/wake", dependencies=[Depends(auth)])
 async def wake() -> dict[str, Any]:
-    await source.wake()
-    return {"ok": True}
+    try:
+        notes = await source.wake()
+    except Exception as err:  # noqa: BLE001
+        notes = [f"Aktualisieren fehlgeschlagen: {error_text(err)}"]
+    return {"ok": not notes, "notes": notes}
 
 
 @app.post("/api/climate", dependencies=[Depends(auth)])
