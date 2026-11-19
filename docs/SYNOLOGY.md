@@ -11,6 +11,18 @@ zu Hause und unterwegs.
 
 ## 1. Dateien auf das NAS kopieren
 
+**Empfohlen – mit Git** (dann geht jedes Update mit einem Befehl, siehe „Aktualisieren“):
+
+1. Paket-Zentrum → **Git Server** installieren (bringt den Befehl `git` mit).
+2. SSH aktivieren (Systemsteuerung → Terminal & SNMP) und per SSH anmelden.
+3. Repository holen:
+
+   ```bash
+   git clone https://github.com/gliderpilotmp/elektroauto.git /volume1/docker/elektroauto
+   ```
+
+**Oder ohne Git:**
+
 1. Auf GitHub: **Code → Download ZIP** und entpacken.
 2. In der **File Station** den Ordner `docker/elektroauto` anlegen
    (der Freigabeordner `docker` entsteht mit dem Container Manager).
@@ -117,6 +129,34 @@ entsteht meist nur ein Lesezeichen am Startbildschirm, das aber genauso funktion
 3. Karte **Benachrichtigungen** → „Auf diesem Gerät aktivieren“ → erlauben → „Test senden“.
 
 ## Aktualisieren
+
+**Mit Git** (per SSH):
+
+```bash
+/volume1/docker/elektroauto/update.sh
+```
+
+Das Skript holt den neuesten Code, zeigt was neu ist, baut den Container neu und räumt alte
+Images auf. Gibt es nichts Neues, tut es nichts (`--force` baut trotzdem neu).
+`.env` und `data/` bleiben unverändert.
+
+Automatisch jede Nacht: **Systemsteuerung → Aufgabenplanung → Erstellen → Geplante Aufgabe →
+Benutzerdefiniertes Script**, Benutzer `root`, Zeitplan z.B. täglich 3:00, Befehl:
+
+```bash
+/volume1/docker/elektroauto/update.sh
+```
+
+Hast du den Ordner ursprünglich ohne Git angelegt, verknüpfst du ihn einmalig so
+(`.env` und `data/` bleiben erhalten):
+
+```bash
+cd /volume1/docker/elektroauto
+git init -b main && git remote add origin https://github.com/gliderpilotmp/elektroauto.git
+git fetch origin && git checkout -f -B main origin/main
+```
+
+**Ohne Git:**
 
 1. Neue Dateien von GitHub in `docker/elektroauto` kopieren (`.env` und den Ordner `data/` behalten:
    darin liegen Verlauf und Benachrichtigungs-Einstellungen).
