@@ -410,7 +410,8 @@ async def status(force: bool = False) -> dict[str, Any]:
         log.exception("Status fehlgeschlagen")
         raise HTTPException(502, f"Uconnect nicht erreichbar: {err}") from err
     await _observe(data)
-    return {**_with_climate(data), "demo": DEMO}
+    eta = store.charge_eta(data.get("soc")) if data.get("charging") else None
+    return {**_with_climate(data), "charge_eta": eta, "demo": DEMO}
 
 
 @app.post("/api/wake", dependencies=[Depends(auth)])
@@ -493,6 +494,17 @@ async def notify_test() -> dict[str, Any]:
     if not result["sent"]:
         raise HTTPException(502, "Senden fehlgeschlagen: " + "; ".join(result["errors"]))
     return result
+
+
+@app.get("/car-image")
+async def car_image() -> FileResponse:
+    """Foto des Autos: data/car.webp (oder .png/.jpg), sonst ein Platzhalter.
+    Das Foto liegt bewusst nicht im Repository."""
+
+    for name in ("car.webp", "car.png", "car.jpg"):
+        if (DATA_DIR / name).exists():
+            return FileResponse(DATA_DIR / name, headers={"Cache-Control": "no-cache"})
+    return FileResponse(FRONTEND / "car-placeholder.svg", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/")

@@ -71,36 +71,57 @@ main { padding: 8px 16px 32px; display: grid; grid-template-columns: minmax(0, 1
 .banner.error { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
 @media (min-width: 592px) { .banner { margin-inline: auto; } }
 
-/* Akku */
-.hero { display: grid; grid-template-columns: 170px 1fr; gap: 18px; align-items: center; }
-.ring-wrap { position: relative; width: 170px; height: 170px; }
-.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
-.ring circle { fill: none; stroke-width: 10; }
-.ring .track { stroke: var(--card-2); }
-.ring .bar {
-  stroke: url(#g); stroke-linecap: round;
-  stroke-dasharray: 326.7; stroke-dashoffset: 326.7;
-  transition: stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1);
+/* Akku: Karte mit herausragendem Auto */
+.hero {
+  position: relative; isolation: isolate; margin-top: 60px;
+  border-radius: 26px; padding: 112px 18px 18px; color: #eef3f8;
+  background: linear-gradient(150deg, #123a5a 0%, #0f2f3a 45%, #0c5a4a 100%);
 }
-.ring-wrap.low .bar { stroke: var(--danger); }
-.ring-label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
-.soc { font-size: 44px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
-.soc small { font-size: 18px; color: var(--muted); margin-left: 2px; }
-.charge-state { font-size: 13px; color: var(--muted); margin-top: 6px; }
-.charge-state.charging { color: var(--accent); }
-.charge-state.charging::before { content: "⚡ "; }
-
-.stats { display: grid; gap: 12px; }
-.stat { display: grid; }
+.hero::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1;
+  background: radial-gradient(60% 50% at 80% 10%, rgb(255 255 255 / .16), transparent 70%);
+}
+.hero.low { background: linear-gradient(150deg, #3a1d2a 0%, #2c1a22 50%, #5a2430 100%); }
+.hero .car {
+  position: absolute; width: 74%; height: auto; right: 2%; top: -60px;
+  filter: drop-shadow(0 22px 20px rgb(0 0 0 / .5)); user-select: none; -webkit-user-drag: none;
+}
+.hero .chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+  padding: 5px 10px; border-radius: 99px; background: rgb(255 255 255 / .14); color: #d6e2ee;
+}
+.hero .chip.charging { color: #b8ffe9; }
+.hero .chip.charging::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; background: #19d3a2;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: .3; transform: scale(.7); } }
+.soc-row { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-top: 10px; }
+.soc-row .big { font-size: 58px; font-weight: 750; letter-spacing: -.04em; line-height: .95; }
+.soc-row .big small { font-size: 24px; opacity: .7; margin-left: 2px; }
+.soc-row .range { text-align: right; display: grid; }
+.hero .label { color: rgb(255 255 255 / .65); }
+.hero .value small { color: rgb(255 255 255 / .65); }
+.cells { display: flex; gap: 3px; margin-top: 16px; }
+.cells i { flex: 1; height: 22px; border-radius: 4px; background: rgb(255 255 255 / .14); }
+.cells i.on { background: linear-gradient(180deg, #5af0c4, #19d3a2); }
+.hero.low .cells i.on { background: linear-gradient(180deg, #ff8a95, #ff5d6c); }
+.cells i.next { animation: cell 1.4s ease-in-out infinite; }
+@keyframes cell { 50% { background: rgb(90 240 196 / .55); } }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tiles > div {
+  display: grid; background: var(--card); border: 1px solid var(--line);
+  border-radius: 16px; padding: 12px 14px;
+}
 .label { color: var(--muted); font-size: 13px; }
-.value { font-size: 22px; font-weight: 650; }
+.value { font-size: 20px; font-weight: 650; }
 .value small { font-size: 14px; color: var(--muted); font-weight: 500; }
-
-@media (max-width: 400px) {
-  .hero { grid-template-columns: 1fr; justify-items: center; }
-  .stats { grid-template-columns: repeat(3, 1fr); width: 100%; text-align: center; }
-  .value { font-size: 18px; }
+@media (max-width: 360px) { .soc-row .big { font-size: 48px; } }
+@media (prefers-color-scheme: light) {
+  .hero { background: linear-gradient(150deg, #1d5f95 0%, #1a6f78 55%, #12a07f 100%); }
+  .hero.low { background: linear-gradient(150deg, #8a2f45 0%, #a33a4a 100%); }
 }
+@media (prefers-reduced-motion: reduce) { .cells i.next, .hero .chip.charging::before { animation: none; } }
 
 /* Klima */
 .pill {
