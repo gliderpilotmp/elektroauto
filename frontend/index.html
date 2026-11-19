@@ -79,11 +79,15 @@
         <button class="action" data-cmd="RDL">
           <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Verriegeln
         </button>
-        <button class="action" data-cmd="RDU">
+        <button class="action" data-cmd="RDU" data-confirm="Auto wirklich entriegeln?">
           <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>Entriegeln
         </button>
-        <button class="action" data-cmd="HBLF">
-          <svg viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6L7 10H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>Hupe &amp; Licht
+        <button class="action" data-cmd="ROTRUNKUNLOCK" data-confirm="Kofferraum wirklich öffnen?">
+          <svg viewBox="0 0 24 24"><path d="M3 15h18v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM5 15l2-7h10l2 7M10 18h4"/></svg>Kofferraum
+        </button>
+        <!-- Hupe & Licht, wenn das Auto es kann, sonst nur Licht -->
+        <button class="action" data-cmd="HBLF" data-alt="ROLIGHTS">
+          <svg viewBox="0 0 24 24"><path d="M9 6c-3.3 0-6 2.7-6 6s2.7 6 6 6h2V6zM15 8l5-1.5M15 12h6M15 16l5 1.5"/></svg><span>Hupe &amp; Licht</span>
         </button>
         <button class="action" data-cmd="CNOW">
           <svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Laden starten

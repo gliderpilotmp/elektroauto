@@ -174,15 +174,20 @@ main { padding: 8px 16px 32px; display: grid; grid-template-columns: minmax(0, 1
 }
 
 /* Aktionen */
-.actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+/* 6er-Raster: je 3 Knöpfe pro Zeile, eine unvollständige letzte Zeile wird gestreckt */
+.actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.actions .action { grid-column: span 2; }
+.actions .action.span3 { grid-column: span 3; }
+.actions .action.span6 { grid-column: span 6; }
 .action {
   display: grid; justify-items: center; gap: 8px;
   padding: 14px 6px; border-radius: 16px; border: 1px solid var(--line);
   background: var(--card-2); color: var(--text); font: inherit; font-size: 12px; cursor: pointer;
 }
+.action[hidden] { display: none; }
 .action[disabled] { opacity: .35; cursor: not-allowed; }
 .action.busy { opacity: .6; pointer-events: none; }
-@media (max-width: 400px) { .actions { grid-template-columns: repeat(2, 1fr); } }
+
 
 .icon-btn {
   width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line);

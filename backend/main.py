@@ -64,6 +64,7 @@ ALLOWED_COMMANDS = {
     "RDU": "Türen entriegeln",
     "HBLF": "Hupe & Licht",
     "ROLIGHTS": "Licht",
+    "ROTRUNKUNLOCK": "Kofferraum öffnen",
     "CNOW": "Laden starten",
 }
 
@@ -258,8 +259,9 @@ class DemoSource:
             "door_driver_locked": True,
             "door_passenger_locked": True,
             "location": {"latitude": 48.20849, "longitude": 16.37208},
-            "supported_commands": ["RDL", "RDU", "HBLF", "ROLIGHTS", "ROPRECOND",
-                                   "ROPRECOND_OFF", "CNOW", "VF", "DEEPREFRESH"],
+            # wie beim echten 500e (kein HBLF, dafür ROLIGHTS und Kofferraum)
+            "supported_commands": ["RDL", "RDU", "ROLIGHTS", "ROPRECOND", "ROPRECOND_OFF",
+                                   "ROTRUNKUNLOCK", "CNOW", "VF", "DEEPREFRESH"],
         }
         self.last = time.time()
 
