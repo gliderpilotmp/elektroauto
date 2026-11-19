@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Elektrocar</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <p class="eyebrow" id="model">Fiat 500e</p>
+      <h1 id="name">Mein 500e</h1>
+    </div>
+    <button class="icon-btn" id="refresh" aria-label="Aktualisieren" title="Daten vom Auto holen">
+      <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+    </button>
+  </header>
+
+  <div class="banner" id="demo" hidden>Demo-Modus – keine Zugangsdaten hinterlegt, Werte sind simuliert.</div>
+  <div class="banner error" id="error" hidden></div>
+
+  <main>
+    <!-- Akku -->
+    <section class="card hero">
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="var(--accent-2)"/>
+              <stop offset="1" stop-color="var(--accent)"/>
+            </linearGradient>
+          </defs>
+          <circle cx="60" cy="60" r="52" class="track"/>
+          <circle cx="60" cy="60" r="52" class="bar" id="ringbar"/>
+        </svg>
+        <div class="ring-label">
+          <span class="soc"><span id="soc">–</span><small>%</small></span>
+          <span class="charge-state" id="chargeState">–</span>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <span class="label">Reichweite</span>
+          <span class="value"><span id="range">–</span> <small id="rangeUnit">km</small></span>
+        </div>
+        <div class="stat">
+          <span class="label">Kilometerstand</span>
+          <span class="value"><span id="odo">–</span> <small id="odoUnit">km</small></span>
+        </div>
+        <div class="stat">
+          <span class="label">Türen</span>
+          <span class="value" id="locks">–</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Klima -->
+    <section class="card climate" id="climateCard">
+      <div class="card-head">
+        <h2>Klimaanlage</h2>
+        <span class="pill" id="climateState">Aus</span>
+      </div>
+      <div class="climate-body">
+        <div class="temp">
+          <button class="round" id="tempDown" aria-label="Kälter">−</button>
+          <div class="temp-value"><span id="temp">21</span><small>°C</small></div>
+          <button class="round" id="tempUp" aria-label="Wärmer">+</button>
+        </div>
+        <button class="power" id="climateBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>
+          <span id="climateBtnText">Einschalten</span>
+        </button>
+      </div>
+      <p class="hint">Die Vorklimatisierung läuft ca. 15 Minuten. Der Befehl braucht bis zu einer Minute, bis das Auto bestätigt.</p>
+    </section>
+
+    <!-- Position -->
+    <section class="card map-card">
+      <div class="card-head">
+        <h2>Position</h2>
+        <a class="link" id="navLink" target="_blank" rel="noopener">Route ↗</a>
+      </div>
+      <div id="map"></div>
+      <p class="hint" id="locInfo">–</p>
+    </section>
+
+    <!-- Schnellaktionen -->
+    <section class="card">
+      <div class="card-head"><h2>Schnellaktionen</h2></div>
+      <div class="actions">
+        <button class="action" data-cmd="RDL">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Verriegeln
+        </button>
+        <button class="action" data-cmd="RDU">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>Entriegeln
+        </button>
+        <button class="action" data-cmd="HBLF">
+          <svg viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6L7 10H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>Hupe &amp; Licht
+        </button>
+        <button class="action" data-cmd="CNOW">
+          <svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Laden starten
+        </button>
+      </div>
+    </section>
+
+    <p class="footer" id="updated">–</p>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="login">
+    <form method="dialog" id="loginForm">
+      <h2>Anmelden</h2>
+      <p>Bitte das App-Passwort eingeben.</p>
+      <input type="password" id="pw" autocomplete="current-password" required>
+      <button class="power on" type="submit">Weiter</button>
+    </form>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
