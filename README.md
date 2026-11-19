@@ -62,6 +62,15 @@ Schritt-für-Schritt-Anleitung inklusive Zugriff von unterwegs (Tailscale oder R
 
 Die App startet dann wie eine normale App im Vollbild. Vollständig installierbar ist sie nur über `https://` (siehe [docs/SYNOLOGY.md](docs/SYNOLOGY.md)).
 
+## Eigenes Foto
+
+Ohne eigenes Foto zeigt die App oben eine schlichte Auto-Silhouette. Ein Foto
+(freigestellt, mit transparentem Hintergrund, am besten im Querformat ca. 1200 × 670 px)
+als `data/car.webp`, `data/car.png` oder `data/car.jpg` ablegen – auf der Synology also
+`/volume1/docker/elektroauto/data/car.webp`. Es wird sofort angezeigt und bleibt bei
+Updates erhalten. Der Ordner `data/` ist nicht im Repository: Fotos aus dem Netz werden
+so nicht veröffentlicht.
+
 ## Benachrichtigungen
 
 1. Die App über **https://** öffnen (z.B. die Tailscale-Adresse, siehe [docs/SYNOLOGY.md](docs/SYNOLOGY.md)).

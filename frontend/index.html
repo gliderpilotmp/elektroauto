@@ -29,38 +29,22 @@
 
   <main>
     <!-- Akku -->
-    <section class="card hero">
-      <div class="ring-wrap">
-        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
-          <defs>
-            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="var(--accent-2)"/>
-              <stop offset="1" stop-color="var(--accent)"/>
-            </linearGradient>
-          </defs>
-          <circle cx="60" cy="60" r="52" class="track"/>
-          <circle cx="60" cy="60" r="52" class="bar" id="ringbar"/>
-        </svg>
-        <div class="ring-label">
-          <span class="soc"><span id="soc">–</span><small>%</small></span>
-          <span class="charge-state" id="chargeState">–</span>
-        </div>
-      </div>
-      <div class="stats">
-        <div class="stat">
+    <section class="hero" id="hero">
+      <img class="car" src="car-image" alt="" width="1200" height="666">
+      <span class="chip" id="chargeState">–</span>
+      <div class="soc-row">
+        <span class="big"><span id="soc">–</span><small>%</small></span>
+        <div class="range">
           <span class="label">Reichweite</span>
-          <span class="value"><span id="range">–</span> <small id="rangeUnit">km</small></span>
-        </div>
-        <div class="stat">
-          <span class="label">Kilometerstand</span>
-          <span class="value"><span id="odo">–</span> <small id="odoUnit">km</small></span>
-        </div>
-        <div class="stat">
-          <span class="label">Türen</span>
-          <span class="value" id="locks">–</span>
+          <span class="value"><span id="rangeKm">–</span> <small id="rangeUnit">km</small></span>
         </div>
       </div>
+      <div class="cells" id="cells" role="img" aria-label="Ladezustand"></div>
     </section>
+    <div class="tiles">
+      <div><span class="label">Kilometerstand</span><span class="value"><span id="odo">–</span> <small id="odoUnit">km</small></span></div>
+      <div><span class="label">Türen</span><span class="value" id="locks">–</span></div>
+    </div>
 
     <!-- Klima -->
     <section class="card climate" id="climateCard">

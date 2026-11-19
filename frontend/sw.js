@@ -1,6 +1,6 @@
 // Minimaler Service Worker: App-Hülle offline verfügbar, API immer live
-const CACHE = "elektrocar-v4";
-const SHELL = ["/", "/style.css", "/app.js", "/icon.svg", "/icon-192.png", "/badge-96.png", "/manifest.webmanifest"];
+const CACHE = "elektrocar-v5";
+const SHELL = ["/", "/style.css", "/app.js", "/icon.svg", "/icon-192.png", "/badge-96.png", "/car-image", "/manifest.webmanifest"];
 // Neue Version sofort aktivieren, sonst bleibt ein alter Service Worker ohne
 // Push-Unterstützung aktiv, bis die App komplett geschlossen wurde
 self.addEventListener("install", (e) => {

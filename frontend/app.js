@@ -1,6 +1,5 @@
 // Elektrocar – Oberfläche
 const $ = (id) => document.getElementById(id);
-const RING = 2 * Math.PI * 52;
 const state = { data: null, temp: 21, password: null, map: null, marker: null };
 
 try { state.password = localStorage.getItem("pw"); } catch {}
@@ -61,13 +60,21 @@ function render(d) {
   // Akku
   const soc = d.soc ?? 0;
   $("soc").textContent = fmt(d.soc);
-  $("ringbar").style.strokeDashoffset = RING * (1 - soc / 100);
-  document.querySelector(".ring-wrap").classList.toggle("low", soc < 20);
+  $("hero").classList.toggle("low", d.soc != null && soc < 20);
+  const cells = $("cells");
+  if (!cells.children.length) for (let i = 0; i < 20; i++) cells.appendChild(document.createElement("i"));
+  const full = Math.floor(soc / 5);
+  [...cells.children].forEach((c, i) => {
+    c.className = i < full ? "on" : i === full && d.charging ? "next" : "";
+  });
+  cells.setAttribute("aria-label", `Ladezustand ${fmt(d.soc)} %`);
   const cs = $("chargeState");
-  cs.className = "charge-state" + (d.charging ? " charging" : "");
-  cs.textContent = d.charging ? "Lädt" : d.plugged_in ? "Angesteckt" : "Nicht angesteckt";
+  cs.classList.toggle("charging", !!d.charging);
+  cs.textContent = d.charging
+    ? (d.charge_eta ? `Lädt · voll um ${hm(new Date(d.charge_eta * 1000))}` : "Lädt")
+    : d.plugged_in ? "Angesteckt" : "Nicht angesteckt";
 
-  $("range").textContent = fmt(d.range_km);
+  $("rangeKm").textContent = fmt(d.range_km);
   $("rangeUnit").textContent = d.range_unit;
   $("odo").textContent = fmt(d.odometer);
   $("odoUnit").textContent = d.odometer_unit;

@@ -108,6 +108,39 @@ class Store:
             self.db.execute("INSERT INTO snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (now, *row))
         return True
 
+    def charge_eta(self, soc: float | None, target: float = 100.0) -> int | None:
+        """Schätzt, wann der Akku voll ist: Ladegeschwindigkeit aus den Messpunkten
+        des laufenden Ladevorgangs (letzte 2 Stunden)."""
+
+        if soc is None or soc >= target:
+            return None
+        now = int(time.time())
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT ts, soc, charging FROM snapshots WHERE ts >= ? ORDER BY ts",
+                (now - 7200,),
+            ).fetchall()
+        # nur der zusammenhängende, aktuelle Ladeabschnitt
+        seg: list[sqlite3.Row] = []
+        for r in rows:
+            if r["charging"] and r["soc"] is not None:
+                seg.append(r)
+            else:
+                seg = []
+        if len(seg) < 2:
+            return None
+        dsoc, dt = seg[-1]["soc"] - seg[0]["soc"], seg[-1]["ts"] - seg[0]["ts"]
+        if dsoc < 2 or dt < 600:
+            return None
+        rate = dsoc / dt  # % pro Sekunde
+        if seg[0]["soc"] >= 80:
+            # schon über 80 % gemessen: das ist bereits die langsame Geschwindigkeit
+            return int(now + (target - soc) / rate)
+        # über 80 % lädt der Akku langsamer: diesen Teil mit halber Geschwindigkeit
+        fast = max(0.0, min(target, 80.0) - soc)
+        slow = target - soc - fast
+        return int(now + fast / rate + slow / (rate / 2))
+
     def history(self, days: int) -> dict[str, Any]:
         since = int(time.time()) - days * 86400
         with self.lock:
