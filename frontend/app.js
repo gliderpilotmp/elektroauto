@@ -521,11 +521,13 @@ const notify = { reg: null, sub: null, info: null };
 
 function renderNotify() {
   const on = !!(notify.sub && notify.info?.subscribed);
-  $("notifyCard").classList.toggle("on", on);
-  $("notifyState").textContent = on ? "Aktiv" : "Aus";
+  const ntfy = !!notify.info?.ntfy;
+  $("notifyCard").classList.toggle("on", on || ntfy);
+  $("notifyState").textContent = on && ntfy ? "Aktiv · ntfy" : ntfy ? "ntfy aktiv" : on ? "Aktiv" : "Aus";
   $("notifyBtnText").textContent = on ? "Auf diesem Gerät deaktivieren" : "Auf diesem Gerät aktivieren";
   $("notifyBtn").classList.toggle("on", false);
-  $("notifyTest").hidden = !on;
+  // Test immer möglich, wenn irgendein Weg eingerichtet ist (Browser oder ntfy)
+  $("notifyTest").hidden = !(on || ntfy);
   $("notifyLocal").hidden = !on;
   document.querySelectorAll("#notifyCard input[data-level]").forEach((i) => {
     i.checked = !!notify.info?.settings[i.dataset.level];
@@ -538,6 +540,9 @@ async function initNotify() {
   try {
     notify.info = await api("/api/notify");
   } catch { return; }
+  if (notify.info.ntfy) {
+    $("notifyHint").textContent = "Benachrichtigungen kommen über ntfy. Zusätzlich kannst du sie hier im Browser aktivieren.";
+  }
   renderNotify();
   if (!window.isSecureContext) {
     return unsupported("Benachrichtigungen gehen nur über eine https://-Adresse, z.B. die Tailscale-Adresse.");
