@@ -71,6 +71,9 @@ class Notifier:
                     vapid_claims={"sub": VAPID_SUBJECT},
                     ttl=6 * 3600,
                     timeout=15,
+                    # hohe Priorität: sonst hält Android die Nachricht im
+                    # Energiesparmodus zurück
+                    headers={"Urgency": "high"},
                 )
                 sent += 1
             except WebPushException as err:

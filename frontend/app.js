@@ -519,6 +519,7 @@ function renderNotify() {
   $("notifyBtnText").textContent = on ? "Auf diesem Gerät deaktivieren" : "Auf diesem Gerät aktivieren";
   $("notifyBtn").classList.toggle("on", false);
   $("notifyTest").hidden = !on;
+  $("notifyLocal").hidden = !on;
   document.querySelectorAll("#notifyCard input[data-level]").forEach((i) => {
     i.checked = !!notify.info?.settings[i.dataset.level];
   });
@@ -594,6 +595,24 @@ $("notifyTest").onclick = async () => {
     toast(`⚠️ ${e.message}`);
   }
 };
+
+// Zeigt direkt am Gerät eine Benachrichtigung, ohne Push-Dienst
+$("notifyLocal").onclick = async () => {
+  try {
+    await notify.reg.showNotification("🔔 Anzeige-Test", {
+      body: "Wenn du das siehst, kann das Handy Benachrichtigungen der App anzeigen.",
+      icon: "icon-192.png", badge: "badge-96.png", tag: "local-test",
+    });
+    toast("Benachrichtigung angezeigt? Wenn nicht: Benachrichtigungen in den Android-Einstellungen prüfen.");
+  } catch (e) {
+    toast(`⚠️ Anzeige fehlgeschlagen: ${e.message}`);
+  }
+};
+
+// Diagnose: der Service Worker meldet, wenn eine Push-Nachricht angekommen ist
+navigator.serviceWorker?.addEventListener("message", (ev) => {
+  if (ev.data?.type === "push") toast(`📬 Push angekommen: ${ev.data.title}`);
+});
 
 document.querySelectorAll("#notifyCard input[data-level]").forEach((input) => {
   input.onchange = async () => {
