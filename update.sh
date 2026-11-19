@@ -51,6 +51,9 @@ if [ "$OLD" != "$NEW" ]; then
   git log --format='   • %s' "$OLD..$NEW"
 fi
 
+# Docker auf der Synology legt Ordner für Volumes nicht selbst an
+mkdir -p data
+
 echo "→ Baue und starte Container (Projekt: $PROJECT) …"
 $COMPOSE -p "$PROJECT" up -d --build
 

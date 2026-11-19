@@ -48,6 +48,15 @@ zu Hause und unterwegs.
 
 ## 3. Container starten
 
+Zuerst den Ordner für Verlauf und Einstellungen anlegen. Docker auf der Synology legt
+ihn nicht selbst an, der Start bricht sonst mit „Bind mount failed“ ab. Per SSH:
+
+```bash
+mkdir -p /volume1/docker/elektroauto/data
+```
+
+Oder in der **File Station** im Ordner `docker/elektroauto` einen Ordner `data` erstellen.
+
 1. **Container Manager → Projekt → Erstellen**
 2. Projektname: `elektroauto`
 3. Pfad: `docker/elektroauto` auswählen. Die vorhandene `docker-compose.yml`
@@ -166,6 +175,7 @@ git fetch origin && git checkout -f -B main origin/main
 ## Probleme?
 
 - **Container Manager → Projekt → elektroauto → Protokoll** zeigt Fehlermeldungen.
+- „Bind mount failed: …/data does not exist“: Ordner `data` im Projektordner anlegen (siehe Schritt 3).
 - „driver failed programming external connectivity“ beim Start: Der Port ist schon belegt.
   Per SSH mit `sudo docker ps` nachsehen, wer ihn nutzt, und in `docker-compose.yml` einen anderen wählen.
 - „Uconnect nicht erreichbar“: E-Mail, Passwort und `UCONNECT_BRAND` prüfen.
