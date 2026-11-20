@@ -166,7 +166,28 @@ class Store:
             "daily_km": _daily_km(all_rows, since),
             "sessions": _sessions(all_rows),
             "driven_km": _driven(rows, before),
+            **_usage(all_rows),
         }
+
+
+def _usage(rows: list[dict[str, Any]]) -> dict[str, float]:
+    """Verbrauch: Akku-Prozent, die beim Fahren verbraucht wurden (Abfall des
+    Ladezustands zwischen zwei Messpunkten, zwischen denen gefahren wurde), und die
+    dabei gefahrenen Kilometer."""
+
+    used_pct = used_km = 0.0
+    prev = None
+    for r in rows:
+        if r["soc"] is None or r["odometer"] is None:
+            continue
+        if prev is not None and not prev["charging"] and not r["charging"]:
+            km = r["odometer"] - prev["odometer"]
+            drop = prev["soc"] - r["soc"]
+            if km > 0 and drop > 0:
+                used_pct += drop
+                used_km += km
+        prev = r
+    return {"drive_used_pct": round(used_pct, 2), "drive_used_km": round(used_km, 1)}
 
 
 def _flag(v: Any) -> int | None:

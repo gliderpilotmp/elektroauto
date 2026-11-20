@@ -262,6 +262,48 @@ dialog .power { width: 100%; justify-content: center; }
 .sessions .active { color: var(--chart-soc); }
 .sessions .none { color: var(--muted); font-size: 14px; background: none; padding: 0; }
 
+/* Kennzahlen: 3 pro Zeile */
+.kpis { row-gap: 14px; }
+
+/* Klima-Timer */
+.timers { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.timers li {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px;
+  background: var(--card-2); border-radius: 14px; padding: 10px 12px 10px 14px;
+}
+.timers .t-time { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.timers .t-days { display: block; color: var(--muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+.timers li.off .t-time { opacity: .45; }
+.timers .t-del { border: 0; background: none; color: var(--muted); font-size: 22px; width: 36px; height: 36px; cursor: pointer; border-radius: 50%; }
+.timers .t-del:hover { background: var(--card); }
+.timers .switch { padding: 0; }
+.timer-row { display: flex; gap: 10px; align-items: stretch; }
+.timer-row .power { flex: 1; justify-content: center; }
+input[type="time"], input[type="number"] {
+  font: inherit; color: var(--text); background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 8px 10px;
+}
+.timer-row input[type="time"] { font-size: 20px; font-weight: 600; width: 120px; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }
+.days button {
+  border: 1px solid var(--line); background: var(--card-2); color: var(--muted);
+  border-radius: 10px; padding: 8px 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.days button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border-color: var(--accent); }
+
+/* Ladeerinnerung */
+.reminder { color: var(--muted); font-size: 14px; line-height: 2.4; margin: -4px 0 4px 56px; }
+.reminder input { padding: 4px 8px; }
+.reminder input[type="number"] { width: 64px; }
+.reminder.off { opacity: .45; }
+
+/* Kosten-Einstellungen */
+.cost-settings { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.cost-settings summary { cursor: pointer; color: var(--accent-2); font-size: 14px; }
+.cost-settings label { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; font-size: 14px; }
+.cost-settings label span { color: var(--muted); }
+.cost-settings input { width: 90px; text-align: right; }
+
 /* Benachrichtigungen */
 .switch { display: flex; align-items: center; gap: 12px; padding: 8px 0; cursor: pointer; }
 .switch input {
@@ -276,5 +318,5 @@ dialog .power { width: 100%; justify-content: center; }
 .switch input:checked { background: var(--accent); border-color: var(--accent); }
 .switch input:checked::after { transform: translateX(18px); background: #fff; }
 .notify-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
-#notifyCard.on .pill { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+#timerCard.on .pill, #notifyCard.on .pill { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .link-btn { border: 0; background: none; color: var(--accent-2); font: inherit; font-size: 14px; cursor: pointer; padding: 8px 0; }

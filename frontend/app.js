@@ -299,7 +299,7 @@ function duration(sec) {
 function relDay(d) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diff = Math.round((today - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
-  return diff === 0 ? "Heute" : diff === 1 ? "Gestern" : dayLabel(d);
+  return diff === 0 ? "Heute" : diff === 1 ? "Gestern" : diff === -1 ? "Morgen" : dayLabel(d);
 }
 
 function tooltip(chart, x, html) {
@@ -469,6 +469,8 @@ document.addEventListener("pointerdown", (ev) => {
   }
 });
 
+const eur = (v) => v == null ? "–" : Number(v).toLocaleString("de-AT", { style: "currency", currency: "EUR" });
+
 function renderSessions(sessions) {
   const ul = $("sessionList");
   ul.innerHTML = "";
@@ -483,7 +485,7 @@ function renderSessions(sessions) {
     li.innerHTML = `
       <span class="when">${relDay(a)}, ${hm(a)}${s.active ? "" : "–" + hm(b)}</span>
       <span class="gain">+${fmt(Math.max(0, gain))} %</span>
-      <span class="meta">${s.active ? '<span class="active">⚡ lädt gerade</span> · ' : ""}${duration(s.end - s.start)} · ${fmt(s.soc_start)} → ${fmt(s.soc_end)} %</span>`;
+      <span class="meta">${s.active ? '<span class="active">⚡ lädt gerade</span> · ' : ""}${duration(s.end - s.start)} · ${fmt(s.soc_start)} → ${fmt(s.soc_end)} % · ${fmt(s.kwh, 1)} kWh · ${eur(s.cost)}</span>`;
     ul.appendChild(li);
   }
 }
@@ -497,7 +499,11 @@ async function loadHistory() {
     const inRange = h.sessions.filter((s) => s.end >= since);
     $("hDriven").textContent = h.driven_km == null ? "–" : `${fmt(h.driven_km)} km`;
     $("hSessions").textContent = inRange.length;
-    $("hCharged").textContent = `${fmt(inRange.reduce((a, s) => a + Math.max(0, (s.soc_end ?? 0) - (s.soc_start ?? 0)), 0))} %`;
+    const c = h.costs || {};
+    $("hCharged").textContent = `${fmt(c.kwh, 1)} kWh`;
+    $("hCost").textContent = eur(c.cost);
+    $("hPer100").textContent = c.kwh_per_100km == null ? "–" : fmt(c.kwh_per_100km, 1);
+    $("hCost100").textContent = eur(c.cost_per_100km);
     state.history = h;
     socChart(h.points, historyDays);
     kmChart(h.daily_km, historyDays);
@@ -657,5 +663,114 @@ document.querySelectorAll("#notifyCard input[data-level]").forEach((input) => {
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
-load().then(() => { loadHistory(); initNotify(); });
+load().then(() => { loadHistory(); initNotify(); loadSettings(); loadTimers(); });
 setInterval(() => { if (!document.hidden) loadHistory(); }, 5 * 60000);
+
+// ------------------------------------------------------------------------
+// Einstellungen: Ladekosten und Ladeerinnerung
+// ------------------------------------------------------------------------
+
+async function saveSettings(patch) {
+  try {
+    renderSettings(await api("/api/settings", { method: "POST", body: JSON.stringify(patch) }));
+  } catch (e) {
+    toast(`⚠️ ${e.message}`);
+  }
+}
+
+function renderSettings(s) {
+  state.settings = s;
+  $("setPrice").value = s.price;
+  $("setBattery").value = s.battery_kwh;
+  $("setLoss").value = s.loss_pct;
+  $("remEnabled").checked = s.reminder_enabled;
+  $("remTime").value = s.reminder_time;
+  $("remBelow").value = s.reminder_below;
+  $("remBox").classList.toggle("off", !s.reminder_enabled);
+}
+
+async function loadSettings() {
+  try { renderSettings(await api("/api/settings")); } catch {}
+}
+
+const numInput = (id, key) => {
+  $(id).onchange = async () => {
+    const v = parseFloat($(id).value.replace(",", "."));
+    if (Number.isFinite(v)) { await saveSettings({ [key]: v }); loadHistory(); }
+  };
+};
+numInput("setPrice", "price");
+numInput("setBattery", "battery_kwh");
+numInput("setLoss", "loss_pct");
+numInput("remBelow", "reminder_below");
+$("remEnabled").onchange = () => saveSettings({ reminder_enabled: $("remEnabled").checked });
+$("remTime").onchange = () => $("remTime").value && saveSettings({ reminder_time: $("remTime").value });
+
+// ------------------------------------------------------------------------
+// Klima-Timer
+// ------------------------------------------------------------------------
+
+const DAY_NAMES = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+function daysText(days) {
+  if (!days.length) return "einmalig";
+  if (days.length === 7) return "täglich";
+  if (days.join() === "0,1,2,3,4") return "Mo–Fr";
+  if (days.join() === "5,6") return "Wochenende";
+  return days.map((d) => DAY_NAMES[d]).join(", ");
+}
+
+function renderTimers(list) {
+  const ul = $("timerList");
+  ul.innerHTML = "";
+  for (const t of list) {
+    const li = document.createElement("li");
+    li.classList.toggle("off", !t.enabled);
+    li.innerHTML = `
+      <span class="t-time">${t.time}<span class="t-days">${daysText(t.days)}</span></span>
+      <label class="switch" title="Ein/Aus"><input type="checkbox" ${t.enabled ? "checked" : ""}></label>
+      <button class="t-del" aria-label="Timer löschen">×</button>`;
+    li.querySelector("input").onchange = (ev) => saveTimer({ ...t, enabled: ev.target.checked });
+    li.querySelector(".t-del").onclick = async () => {
+      if (!confirm(`Timer ${t.time} löschen?`)) return;
+      renderTimers(await api(`/api/timers/${t.id}`, { method: "DELETE" }));
+    };
+    ul.appendChild(li);
+  }
+  const next = list.map((t) => t.next).filter(Boolean).sort()[0];
+  $("timerNext").textContent = next
+    ? `Nächster: ${relDay(new Date(next * 1000))} ${hm(new Date(next * 1000))}`
+    : "Kein Timer";
+  $("timerCard").classList.toggle("on", !!next);
+}
+
+async function saveTimer(t) {
+  try {
+    renderTimers(await api("/api/timers", { method: "POST", body: JSON.stringify(t) }));
+  } catch (e) {
+    toast(`⚠️ ${e.message}`);
+  }
+}
+
+async function loadTimers() {
+  try { renderTimers(await api("/api/timers")); } catch {}
+}
+
+const dayBox = $("timerDays");
+DAY_NAMES.forEach((name, i) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = name;
+  b.dataset.day = i;
+  b.setAttribute("aria-pressed", i < 5 ? "true" : "false");
+  b.onclick = () => b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true");
+  dayBox.appendChild(b);
+});
+
+$("timerForm").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const days = [...dayBox.querySelectorAll('[aria-pressed="true"]')].map((b) => Number(b.dataset.day));
+  await saveTimer({ time: $("timerTime").value, days, enabled: true });
+  toast(`Timer ${$("timerTime").value} (${daysText(days)}) gespeichert`);
+};
+setInterval(() => { if (!document.hidden) loadTimers(); }, 5 * 60000);

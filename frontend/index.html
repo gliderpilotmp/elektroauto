@@ -72,6 +72,25 @@
       <p class="hint" id="climateHint">Die Vorklimatisierung läuft ca. 15 Minuten. Der Befehl braucht bis zu einer Minute, bis das Auto bestätigt.</p>
     </section>
 
+    <!-- Klima-Timer -->
+    <section class="card" id="timerCard">
+      <div class="card-head">
+        <h2>Klima-Timer</h2>
+        <span class="pill" id="timerNext">Kein Timer</span>
+      </div>
+      <ul class="timers" id="timerList"></ul>
+      <form class="timer-form" id="timerForm">
+        <div class="timer-row">
+          <input type="time" id="timerTime" value="07:30" required aria-label="Uhrzeit">
+          <button class="power" type="submit">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Hinzufügen
+          </button>
+        </div>
+        <div class="days" id="timerDays" role="group" aria-label="Wochentage"></div>
+      </form>
+      <p class="hint">Startet die Vorklimatisierung (ca. 15 Min.) zur eingestellten Zeit – also etwa eine Viertelstunde vor der Abfahrt. Ohne Wochentag läuft der Timer einmal. Über ntfy kommt eine Bestätigung.</p>
+    </section>
+
     <!-- Schnellaktionen -->
     <section class="card">
       <div class="card-head"><h2>Schnellaktionen</h2></div>
@@ -119,6 +138,9 @@
         <div><span class="label">Gefahren</span><span class="value" id="hDriven">–</span></div>
         <div><span class="label">Ladevorgänge</span><span class="value" id="hSessions">–</span></div>
         <div><span class="label">Geladen</span><span class="value" id="hCharged">–</span></div>
+        <div><span class="label">Ladekosten</span><span class="value" id="hCost">–</span></div>
+        <div><span class="label">kWh / 100 km</span><span class="value" id="hPer100">–</span></div>
+        <div><span class="label">Kosten / 100 km</span><span class="value" id="hCost100">–</span></div>
       </div>
       <h3 class="chart-title">Ladezustand <span class="legend-charging">Laden</span></h3>
       <div class="chart" id="socChart"></div>
@@ -128,6 +150,13 @@
       </div>
       <h3 class="chart-title">Letzte Ladevorgänge</h3>
       <ul class="sessions" id="sessionList"></ul>
+      <details class="cost-settings">
+        <summary>Kosten-Einstellungen</summary>
+        <label>Strompreis <span><input type="number" id="setPrice" min="0" max="5" step="0.01"> € / kWh</span></label>
+        <label>Akku nutzbar <span><input type="number" id="setBattery" min="5" max="200" step="0.1"> kWh</span></label>
+        <label>Ladeverluste <span><input type="number" id="setLoss" min="0" max="40" step="1"> %</span></label>
+        <p class="hint">Fiat 500e mit 42-kWh-Akku: 37,3 kWh nutzbar; mit 24-kWh-Akku: 21,3 kWh. Ladeverluste von Wallbox und Ladegerät liegen meist bei 8–12 %.</p>
+      </details>
     </section>
 
     <!-- Benachrichtigungen -->
@@ -138,6 +167,12 @@
       </div>
       <label class="switch"><input type="checkbox" data-level="80"><span>Bei 80 % Ladezustand</span></label>
       <label class="switch"><input type="checkbox" data-level="100"><span>Wenn der Akku voll ist (100 %)</span></label>
+      <label class="switch"><input type="checkbox" id="remEnabled"><span>Ladeerinnerung</span></label>
+      <div class="reminder" id="remBox">
+        um <input type="time" id="remTime" aria-label="Uhrzeit der Ladeerinnerung">,
+        wenn unter <input type="number" id="remBelow" min="5" max="95" step="5" aria-label="Schwelle in Prozent"> %
+        und nicht angesteckt
+      </div>
       <div class="notify-actions">
         <button class="power" id="notifyBtn">
           <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
