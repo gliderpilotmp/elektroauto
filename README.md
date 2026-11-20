@@ -8,6 +8,9 @@ Eine Web-App fürs Handy, um deinen Fiat 500e zu verwalten:
 - ❄️🔥 **Klimaanlage** ein/aus mit Wunschtemperatur
 - 🔒 Extras: Verriegeln, Entriegeln, Hupe & Licht, Laden starten
 - 🔔 **Benachrichtigungen** aufs Handy bei 80 % und bei vollem Akku – auch wenn die App geschlossen ist
+- ⏰ **Klima-Timer**: Vorklimatisierung zu festen Zeiten (z.B. Mo–Fr 7:15) oder einmalig, mit Bestätigung über ntfy
+- 💶 **Ladekosten und Verbrauch**: kWh, Kosten, kWh/100 km und €/100 km aus dem Verlauf, Kosten pro Ladevorgang
+- 🔌 **Ladeerinnerung**: abends eine Meldung, wenn der Akku unter einer Schwelle und das Auto nicht angesteckt ist
 - 📈 **Verlauf**: Ladezustand, Kilometer pro Tag und Ladevorgänge der letzten 24 Std. / 7 / 30 Tage
 
 Die App spricht über die Uconnect-Cloud mit dem Auto (wie die offizielle Fiat-App)
@@ -52,6 +55,8 @@ Schritt-für-Schritt-Anleitung inklusive Zugriff von unterwegs (Tailscale oder R
 | `POLL_MINUTES` / `POLL_MINUTES_CHARGING` | wie oft das Auto im Hintergrund abgefragt wird (Standard 10 bzw. 5 Minuten beim Laden) |
 | `CLIMATE_MINUTES` | Laufzeit der Klimatisierung für die Restzeit-Anzeige (Standard 15), falls das Auto keinen Status meldet |
 | `OUTAGE_NOTIFY_MINUTES` | nach so vielen Minuten ohne Verbindung zu Fiat kommt eine Warnung, bei Rückkehr eine Entwarnung (Standard 60) |
+| `STROMPREIS`, `AKKU_KWH`, `LADEVERLUSTE` | Standardwerte für die Ladekosten (0,28 €/kWh, 37,3 kWh nutzbar, 10 %), in der App änderbar |
+| `LADEERINNERUNG_UM`, `LADEERINNERUNG_UNTER` | Standardwerte der Ladeerinnerung (20:00, 30 %), in der App änderbar |
 | `DATA_DIR` | Ordner für Verlauf und Einstellungen (Docker: `/data`, liegt am NAS im Projektordner unter `data/`) |
 | `NTFY_URL` | optional: Benachrichtigungen zusätzlich über [ntfy](https://ntfy.sh) |
 | `VAPID_SUBJECT` | optional: Kontaktadresse für Web-Push, z.B. `mailto:du@example.com` |

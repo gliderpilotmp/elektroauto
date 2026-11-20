@@ -68,6 +68,19 @@ OUTAGE_NOTIFY_MINUTES = float(os.environ.get("OUTAGE_NOTIFY_MINUTES") or 60)
 LOGIN_PAUSE_MINUTES = float(os.environ.get("LOGIN_PAUSE_MINUTES") or 60)
 LOGIN_PAUSE_MAX_HOURS = float(os.environ.get("LOGIN_PAUSE_MAX_HOURS") or 24)
 
+# Ladekosten und Ladeerinnerung: Standardwerte, in der App änderbar
+DEFAULTS = {
+    "price": float(os.environ.get("STROMPREIS") or 0.28),          # € pro kWh
+    "battery_kwh": float(os.environ.get("AKKU_KWH") or 37.3),      # nutzbare Kapazität
+    "loss_pct": float(os.environ.get("LADEVERLUSTE") or 10),       # Verluste beim Laden
+    "reminder_enabled": True,
+    "reminder_time": os.environ.get("LADEERINNERUNG_UM") or "20:00",
+    "reminder_below": float(os.environ.get("LADEERINNERUNG_UNTER") or 30),
+}
+# So lange nach der geplanten Zeit darf ein Timer noch ausgelöst werden (z.B. nach
+# einem Neustart), danach wird er für diesen Tag übersprungen
+SCHEDULE_GRACE_MINUTES = 10
+
 # Befehle, die die App senden darf (Name -> Beschreibung)
 ALLOWED_COMMANDS = {
     "RDL": "Türen verriegeln",
@@ -561,9 +574,10 @@ def _start_job(label: str, coro) -> dict[str, Any]:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    task = asyncio.create_task(_poller())
+    tasks = [asyncio.create_task(_poller()), asyncio.create_task(_scheduler())]
     yield
-    task.cancel()
+    for task in tasks:
+        task.cancel()
 
 
 app = FastAPI(title="Elektrocar", docs_url=None, redoc_url=None, lifespan=lifespan)
@@ -629,7 +643,189 @@ async def job(job_id: str) -> dict[str, Any]:
 
 @app.get("/api/history", dependencies=[Depends(auth)])
 async def history(days: int = 7) -> dict[str, Any]:
-    return store.history(min(max(days, 1), 365))
+    h = store.history(min(max(days, 1), 365))
+    s = settings()
+    since = time.time() - days * 86400
+    # Ladekosten: geladene Prozent -> kWh im Akku -> kWh aus dem Netz (inkl. Verluste)
+    grid = lambda pct: pct / 100 * s["battery_kwh"] / (1 - s["loss_pct"] / 100)  # noqa: E731
+    for sess in h["sessions"]:
+        pct = max(0.0, (sess.get("soc_end") or 0) - (sess.get("soc_start") or 0))
+        sess["kwh"] = round(grid(pct), 2)
+        sess["cost"] = round(sess["kwh"] * s["price"], 2)
+    in_range = [x for x in h["sessions"] if x["end"] >= since]
+    kwh = sum(x["kwh"] for x in in_range)
+    per100 = None
+    if h["drive_used_km"] >= 20:
+        per100 = h["drive_used_pct"] / 100 * s["battery_kwh"] / h["drive_used_km"] * 100
+    h["costs"] = {
+        "kwh": round(kwh, 1),
+        "cost": round(kwh * s["price"], 2),
+        "kwh_per_100km": round(per100, 1) if per100 else None,
+        "cost_per_100km": round(grid(per100 / s["battery_kwh"] * 100) * s["price"], 2) if per100 else None,
+        "price": s["price"],
+    }
+    return h
+
+
+# ---- Einstellungen (Ladekosten, Ladeerinnerung) -----------------------------
+
+def settings() -> dict[str, Any]:
+    return {**DEFAULTS, **(store.get("settings") or {})}
+
+
+class SettingsUpdate(BaseModel):
+    price: float | None = Field(default=None, ge=0, le=5)
+    battery_kwh: float | None = Field(default=None, gt=5, le=200)
+    loss_pct: float | None = Field(default=None, ge=0, le=40)
+    reminder_enabled: bool | None = None
+    reminder_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    reminder_below: float | None = Field(default=None, ge=5, le=95)
+
+
+@app.get("/api/settings", dependencies=[Depends(auth)])
+async def get_settings() -> dict[str, Any]:
+    return settings()
+
+
+@app.post("/api/settings", dependencies=[Depends(auth)])
+async def set_settings(req: SettingsUpdate) -> dict[str, Any]:
+    stored = store.get("settings") or {}
+    stored.update(req.model_dump(exclude_none=True))
+    store.set("settings", stored)
+    return settings()
+
+
+# ---- Klima-Timer ------------------------------------------------------------
+
+class Timer(BaseModel):
+    id: str | None = None
+    time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    days: list[int] = Field(default_factory=list)  # 0 = Montag; leer = einmalig
+    enabled: bool = True
+
+
+def timers() -> list[dict[str, Any]]:
+    return store.get("timers") or []
+
+
+@app.get("/api/timers", dependencies=[Depends(auth)])
+async def get_timers() -> list[dict[str, Any]]:
+    return [{**t, "next": _next_run(t)} for t in timers()]
+
+
+@app.post("/api/timers", dependencies=[Depends(auth)])
+async def save_timer(t: Timer) -> list[dict[str, Any]]:
+    data = t.model_dump()
+    data["days"] = sorted({d for d in data["days"] if 0 <= d <= 6})
+    items = timers()
+    if data["id"] and any(x["id"] == data["id"] for x in items):
+        old = next(x for x in items if x["id"] == data["id"])
+        data["last"] = old.get("last") if old["time"] == data["time"] else None
+        items = [data if x["id"] == data["id"] else x for x in items]
+    else:
+        data["id"] = uuid.uuid4().hex[:8]
+        items.append(data)
+    items.sort(key=lambda x: x["time"])
+    store.set("timers", items)
+    return await get_timers()
+
+
+@app.delete("/api/timers/{timer_id}", dependencies=[Depends(auth)])
+async def delete_timer(timer_id: str) -> list[dict[str, Any]]:
+    store.set("timers", [x for x in timers() if x["id"] != timer_id])
+    return await get_timers()
+
+
+def _next_run(t: dict[str, Any], now: datetime | None = None) -> int | None:
+    """Nächster Zeitpunkt, zu dem der Timer auslöst (Unix-Zeit), oder None."""
+
+    if not t.get("enabled"):
+        return None
+    now = now or datetime.now()
+    hh, mm = map(int, t["time"].split(":"))
+    for add in range(8):
+        day = (now + timedelta(days=add)).replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if day <= now - timedelta(minutes=SCHEDULE_GRACE_MINUTES):
+            continue
+        if t.get("last") == day.strftime("%Y-%m-%d"):
+            continue
+        if not t["days"] or day.weekday() in t["days"]:
+            return int(day.timestamp())
+    return None
+
+
+def _due(hhmm: str, last: str | None, now: datetime) -> bool:
+    """Ist die Uhrzeit heute erreicht (und höchstens SCHEDULE_GRACE_MINUTES her),
+    und wurde heute noch nicht ausgelöst?"""
+
+    hh, mm = map(int, hhmm.split(":"))
+    at = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    return (last != now.strftime("%Y-%m-%d")
+            and at <= now < at + timedelta(minutes=SCHEDULE_GRACE_MINUTES))
+
+
+async def _fire_timer(t: dict[str, Any]) -> None:
+    try:
+        ok = await _climate_job(True, None)
+        reason = "" if ok else "das Auto hat den Befehl nicht bestätigt"
+    except Exception as err:  # noqa: BLE001
+        ok, reason = False, error_text(err)
+    log.info("Klima-Timer %s: %s", t["time"], "gestartet" if ok else reason)
+    if ok:
+        await notifier.send("❄️ Klima-Timer", f"Vorklimatisierung um {t['time']} gestartet.",
+                            tag="timer")
+    else:
+        await notifier.send("⚠️ Klima-Timer fehlgeschlagen",
+                            f"Vorklimatisierung um {t['time']} nicht gestartet: {reason}", tag="timer")
+
+
+async def _check_reminder(s: dict[str, Any]) -> None:
+    try:
+        data = await source.status(force=True)
+    except Exception as err:  # noqa: BLE001
+        log.warning("Ladeerinnerung: Status nicht abrufbar: %s", error_text(err))
+        return
+    soc = data.get("soc")
+    if soc is None or data.get("plugged_in") or data.get("charging") or soc >= s["reminder_below"]:
+        return
+    rng = data.get("range_km")
+    await notifier.send(
+        "🔌 Ladeerinnerung",
+        f"Akku bei {soc:.0f} %{f' (ca. {rng:.0f} km)' if rng else ''} und nicht angesteckt.",
+        tag="reminder",
+    )
+
+
+async def _scheduler() -> None:
+    """Löst Klima-Timer und die tägliche Ladeerinnerung aus."""
+
+    while True:
+        try:
+            now = datetime.now()
+            today = now.strftime("%Y-%m-%d")
+            items = timers()
+            changed = False
+            for t in items:
+                if not t.get("enabled") or not _due(t["time"], t.get("last"), now):
+                    continue
+                if t["days"] and now.weekday() not in t["days"]:
+                    continue
+                t["last"] = today
+                if not t["days"]:
+                    t["enabled"] = False  # einmalig
+                changed = True
+                asyncio.create_task(_fire_timer(dict(t)))
+            if changed:
+                store.set("timers", items)
+
+            s = settings()
+            last = store.get("reminder_last")
+            if s["reminder_enabled"] and _due(s["reminder_time"], last, now):
+                store.set("reminder_last", today)
+                await _check_reminder(s)
+        except Exception:  # noqa: BLE001
+            log.exception("Zeitplan fehlgeschlagen")
+        await asyncio.sleep(20)
 
 
 class PushSubscription(BaseModel):
