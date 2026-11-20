@@ -58,6 +58,9 @@ POLL_MINUTES_CHARGING = float(os.environ.get("POLL_MINUTES_CHARGING") or (1 if D
 WAKE_MAX_FAILS = 3
 WAKE_PAUSE_HOURS = 6
 
+# Nach so vielen Minuten ohne Verbindung zu Fiat wird einmal benachrichtigt
+OUTAGE_NOTIFY_MINUTES = float(os.environ.get("OUTAGE_NOTIFY_MINUTES") or 60)
+
 # Befehle, die die App senden darf (Name -> Beschreibung)
 ALLOWED_COMMANDS = {
     "RDL": "Türen verriegeln",
@@ -92,6 +95,17 @@ def error_text(err: Exception) -> str:
     if status:
         return f"HTTP {status} (ohne Begründung)"
     return reason or str(err)
+
+
+def _is_rejection(err: Exception) -> bool:
+    """True, wenn Fiat einen Befehl abgelehnt hat (HTTP 4xx) – nicht bei
+    Anmelde- oder Verbindungsfehlern."""
+
+    from py_uconnect import APIError, AuthenticationError
+
+    status = getattr(err, "status", None)
+    return (isinstance(err, APIError) and not isinstance(err, AuthenticationError)
+            and status is not None and 400 <= status < 500)
 
 
 def _hm(ts: float) -> str:
@@ -197,6 +211,12 @@ class UconnectSource:
                 store.set(key, {"count": 0, "until": 0})
             except Exception as err:  # noqa: BLE001
                 reason = error_text(err)
+                if not _is_rejection(err):
+                    # Anmelde- oder Verbindungsproblem: zählt nicht als Ablehnung
+                    log.warning("%s nicht gesendet: %s", cmd, reason)
+                    notes.append(f"{label} aktualisieren: Anmeldung/Verbindung zu Fiat "
+                                 f"fehlgeschlagen ({reason})")
+                    continue
                 count = fail["count"] + 1
                 until = time.time() + WAKE_PAUSE_HOURS * 3600 if count >= WAKE_MAX_FAILS else 0
                 store.set(key, {"count": count, "until": until, "reason": reason})
@@ -391,6 +411,36 @@ async def _observe(data: dict[str, Any]) -> None:
         log.exception("Verlauf/Benachrichtigung fehlgeschlagen")
 
 
+async def _outage_failed(reason: str) -> None:
+    """Merkt sich, seit wann Fiat nicht erreichbar ist, und benachrichtigt einmal,
+    wenn das länger als OUTAGE_NOTIFY_MINUTES dauert."""
+
+    out = store.get("outage") or {}
+    now = time.time()
+    if not out.get("since"):
+        out = {"since": now, "notified": False}
+    out["reason"] = reason
+    if not out["notified"] and now - out["since"] >= OUTAGE_NOTIFY_MINUTES * 60:
+        await notifier.send(
+            "⚠️ Keine Verbindung zu Fiat",
+            f"Seit {_hm(out['since'])} schlägt die Abfrage fehl: {reason}. "
+            "Bis das wieder geht, kommen keine Lade-Benachrichtigungen.",
+            tag="outage",
+        )
+        out["notified"] = True
+    store.set("outage", out)
+
+
+async def _outage_ok() -> None:
+    out = store.get("outage") or {}
+    if not out.get("since"):
+        return
+    if out.get("notified"):
+        await notifier.send("✅ Verbindung zu Fiat wieder da",
+                            f"Ausfall von {_hm(out['since'])} bis {_hm(time.time())}.", tag="outage")
+    store.set("outage", {})
+
+
 async def _poller() -> None:
     """Fragt das Auto im Hintergrund ab, auch wenn die App nicht offen ist."""
 
@@ -400,8 +450,11 @@ async def _poller() -> None:
             data = await source.status(force=True)
             charging = bool(data.get("charging"))
             await _observe(data)
+            await _outage_ok()
         except Exception as err:  # noqa: BLE001
-            log.warning("Hintergrund-Abfrage fehlgeschlagen: %s", err)
+            reason = error_text(err)
+            log.warning("Hintergrund-Abfrage fehlgeschlagen: %s", reason)
+            await _outage_failed(reason)
         minutes = POLL_MINUTES_CHARGING if charging else POLL_MINUTES
         await asyncio.sleep(max(0.5, minutes) * 60)
 
