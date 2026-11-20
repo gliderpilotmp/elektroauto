@@ -11,6 +11,7 @@ und schickt Benachrichtigungen bei 80 % und 100 % Ladezustand.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 import random
@@ -61,6 +62,12 @@ WAKE_PAUSE_HOURS = 6
 # Nach so vielen Minuten ohne Verbindung zu Fiat wird einmal benachrichtigt
 OUTAGE_NOTIFY_MINUTES = float(os.environ.get("OUTAGE_NOTIFY_MINUTES") or 60)
 
+# Nach einem abgelehnten Login so lange keine neue Anmeldung versuchen (Minuten);
+# verdoppelt sich bei jedem weiteren Fehlschlag bis LOGIN_PAUSE_MAX_HOURS.
+# Fiat sperrt das Konto sonst wegen zu vieler Fehlversuche.
+LOGIN_PAUSE_MINUTES = float(os.environ.get("LOGIN_PAUSE_MINUTES") or 60)
+LOGIN_PAUSE_MAX_HOURS = float(os.environ.get("LOGIN_PAUSE_MAX_HOURS") or 24)
+
 # Befehle, die die App senden darf (Name -> Beschreibung)
 ALLOWED_COMMANDS = {
     "RDL": "Türen verriegeln",
@@ -106,6 +113,45 @@ def _is_rejection(err: Exception) -> bool:
     status = getattr(err, "status", None)
     return (isinstance(err, APIError) and not isinstance(err, AuthenticationError)
             and status is not None and 400 <= status < 500)
+
+
+class LoginPaused(Exception):
+    """Login wird absichtlich nicht versucht (Pause nach Fehlschlägen)."""
+
+
+def _cred_key() -> str:
+    # Ändern sich E-Mail oder Passwort in .env, gilt eine alte Pause nicht mehr
+    return hashlib.sha256(f"{EMAIL}\0{PASSWORD}".encode()).hexdigest()[:16]
+
+
+def _login_paused_text() -> str | None:
+    block = store.get("login_block") or {}
+    if block.get("key") != _cred_key() or time.time() >= block.get("until", 0):
+        return None
+    return (f"Anmeldung bei Fiat pausiert bis {_hm(block['until'])} "
+            f"nach {block['count']} Fehlschlag/Fehlschlägen ({block.get('reason', '')}). "
+            "Ein geändertes Passwort in .env hebt die Pause sofort auf.")
+
+
+async def _login_failed(reason: str) -> None:
+    block = store.get("login_block") or {}
+    count = (block.get("count", 0) if block.get("key") == _cred_key() else 0) + 1
+    minutes = min(LOGIN_PAUSE_MINUTES * 2 ** (count - 1), LOGIN_PAUSE_MAX_HOURS * 60)
+    until = time.time() + minutes * 60
+    store.set("login_block", {"key": _cred_key(), "count": count, "until": until, "reason": reason})
+    log.warning("Login abgelehnt (%d. Mal): %s – Pause bis %s", count, reason, _hm(until))
+    if count == 1:
+        await notifier.send(
+            "🔒 Fiat-Anmeldung abgelehnt",
+            f"{reason}. Die App versucht es erst ab {_hm(until)} wieder, damit Fiat "
+            "das Konto nicht sperrt. Prüfe Passwort bzw. die offizielle Fiat-App.",
+            tag="login",
+        )
+
+
+def _login_ok() -> None:
+    if store.get("login_block"):
+        store.set("login_block", {})
 
 
 def _hm(ts: float) -> str:
@@ -161,10 +207,37 @@ class UconnectSource:
         if BRAND not in BRANDS:
             raise RuntimeError(f"Unbekannte Marke {BRAND!r}, z.B. FIAT_EU")
         self.client = Client(EMAIL, PASSWORD, PIN, BRANDS[BRAND])
+        self._wrap_login()
         self.lock = asyncio.Lock()
         self.cache: dict[str, Any] | None = None
         self.cache_time = 0.0
         self.vin: str | None = VIN
+
+    def _wrap_login(self) -> None:
+        """Jede neue Anmeldung (Abfrage, Befehle, PIN) läuft hier durch: nach
+        abgelehnten Logins wird pausiert, statt Fiat mit Versuchen zu fluten."""
+
+        from py_uconnect import APIError, AuthenticationError
+
+        client = self.client.api
+        original = client._ensure_credentials
+
+        async def guarded():
+            creds = client._credentials
+            if creds is not None and not creds.expires_soon():
+                return creds
+            paused = _login_paused_text()
+            if paused:
+                raise LoginPaused(paused)
+            try:
+                creds = await original()
+            except (AuthenticationError, APIError) as err:
+                await _login_failed(error_text(err))
+                raise
+            _login_ok()
+            return creds
+
+        client._ensure_credentials = guarded
 
     async def status(self, force: bool = False) -> dict[str, Any]:
         async with self.lock:
