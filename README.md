@@ -51,6 +51,7 @@ Schritt-für-Schritt-Anleitung inklusive Zugriff von unterwegs (Tailscale oder R
 | `CACHE_SECONDS` | wie lange Daten zwischengespeichert werden (Standard 60) |
 | `POLL_MINUTES` / `POLL_MINUTES_CHARGING` | wie oft das Auto im Hintergrund abgefragt wird (Standard 10 bzw. 5 Minuten beim Laden) |
 | `CLIMATE_MINUTES` | Laufzeit der Klimatisierung für die Restzeit-Anzeige (Standard 15), falls das Auto keinen Status meldet |
+| `OUTAGE_NOTIFY_MINUTES` | nach so vielen Minuten ohne Verbindung zu Fiat kommt eine Warnung, bei Rückkehr eine Entwarnung (Standard 60) |
 | `DATA_DIR` | Ordner für Verlauf und Einstellungen (Docker: `/data`, liegt am NAS im Projektordner unter `data/`) |
 | `NTFY_URL` | optional: Benachrichtigungen zusätzlich über [ntfy](https://ntfy.sh) |
 | `VAPID_SUBJECT` | optional: Kontaktadresse für Web-Push, z.B. `mailto:du@example.com` |
